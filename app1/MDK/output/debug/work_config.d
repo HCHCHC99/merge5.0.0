@@ -1,0 +1,14 @@
+.\output\debug\work_config.o: ..\app\config\work_config.c
+.\output\debug\work_config.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\work_config.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\output\debug\work_config.o: ..\app\config\work_config.h
+.\output\debug\work_config.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\work_config.o: ..\app\axis_typedef.h
+.\output\debug\work_config.o: ..\app\state\state_engine.h
+.\output\debug\work_config.o: ..\core\event_group.h
+.\output\debug\work_config.o: ..\config\sys_config.h
+.\output\debug\work_config.o: ..\app\event_def.h
+.\output\debug\work_config.o: ..\app\led\led_events.h
+.\output\debug\work_config.o: ..\core\ring_buffer.h
+.\output\debug\work_config.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stddef.h
+.\output\debug\work_config.o: ..\app\storage\flash-mcu\flash_mcu.h

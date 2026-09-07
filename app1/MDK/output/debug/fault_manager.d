@@ -1,0 +1,13 @@
+.\output\debug\fault_manager.o: ..\service\fault_manager.c
+.\output\debug\fault_manager.o: ..\service\fault_manager.h
+.\output\debug\fault_manager.o: ..\config\sys_config.h
+.\output\debug\fault_manager.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\fault_manager.o: ..\service\log_rtt.h
+.\output\debug\fault_manager.o: ..\config\log_config.h
+.\output\debug\fault_manager.o: ..\service\RTT\SEGGER_RTT.h
+.\output\debug\fault_manager.o: ..\service\RTT\SEGGER_RTT_Conf.h
+.\output\debug\fault_manager.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\output\debug\fault_manager.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h
+.\output\debug\fault_manager.o: ..\core\msg_pubsub.h
+.\output\debug\fault_manager.o: ..\config\msg_topics.h
+.\output\debug\fault_manager.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h

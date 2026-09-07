@@ -1,0 +1,11 @@
+.\output\debug\log_rtt.o: ..\service\log_rtt.c
+.\output\debug\log_rtt.o: ..\service\log_rtt.h
+.\output\debug\log_rtt.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\log_rtt.o: ..\config\log_config.h
+.\output\debug\log_rtt.o: ..\config\sys_config.h
+.\output\debug\log_rtt.o: ..\service\RTT\SEGGER_RTT.h
+.\output\debug\log_rtt.o: ..\service\RTT\SEGGER_RTT_Conf.h
+.\output\debug\log_rtt.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\output\debug\log_rtt.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h
+.\output\debug\log_rtt.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdio.h
+.\output\debug\log_rtt.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h

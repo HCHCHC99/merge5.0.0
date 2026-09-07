@@ -1,0 +1,17 @@
+.\output\debug\ctrl_position.o: ..\app\loop\ctrl_position.c
+.\output\debug\ctrl_position.o: ..\app\loop\ctrl_position.h
+.\output\debug\ctrl_position.o: ..\app\axis_typedef.h
+.\output\debug\ctrl_position.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\ctrl_position.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\ctrl_position.o: ..\app\state\state_engine.h
+.\output\debug\ctrl_position.o: ..\core\event_group.h
+.\output\debug\ctrl_position.o: ..\config\sys_config.h
+.\output\debug\ctrl_position.o: ..\app\event_def.h
+.\output\debug\ctrl_position.o: ..\app\led\led_events.h
+.\output\debug\ctrl_position.o: ..\core\ring_buffer.h
+.\output\debug\ctrl_position.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\output\debug\ctrl_position.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stddef.h
+.\output\debug\ctrl_position.o: ..\core\sys_sched.h
+.\output\debug\ctrl_position.o: ..\core\sys_module.h
+.\output\debug\ctrl_position.o: ..\app\pid\pid_common.h
+.\output\debug\ctrl_position.o: F:\Keil5\ARM\ARMCC\Bin\..\include\math.h
