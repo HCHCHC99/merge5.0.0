@@ -9,6 +9,7 @@
   #include "App_Motor_Project.h"
   #include "param_manager.h"
   #include "Gpio_io.h"
+  #include "Led_Boot.h"
   #include "App_Comm.h"
   #include "Params.h"
   #include "App_FaultHandler.h"
@@ -112,6 +113,7 @@
 int main(void)
 {
     Hardware_Init();
+    Led_Boot_Init();    /* 升级 LED(PC13/PH2) 初始灭, 进入 1s 慢闪 */
     MAIN_D("===== main(): BOOTLOADER PATH =====\r\n");
 
     /* PB6 phase indicator moved to UDS phase handlers (Phase1/2/3) */

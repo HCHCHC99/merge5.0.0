@@ -654,6 +654,11 @@
               <FilePath>..\..\Adp\Gpio_io.c</FilePath>
             </File>
             <File>
+              <FileName>Led_Boot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\Adp\Led_Boot.c</FilePath>
+            </File>
+            <File>
               <FileName>Hardware.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\Adp\Hardware.c</FilePath>
@@ -1578,6 +1583,11 @@
               <FileName>Gpio_io.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\Adp\Gpio_io.c</FilePath>
+            </File>
+            <File>
+              <FileName>Led_Boot.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\Adp\Led_Boot.c</FilePath>
             </File>
             <File>
               <FileName>Hardware.c</FileName>

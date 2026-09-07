@@ -8,6 +8,7 @@
 #include "main.h"
 #include "uds_ota.h"
 #include "rmu.h"
+#include "Led_Boot.h"
 
 /* ===== UDS 编程模式 CAN 心跳包 =====
  * 500ms 周期，扩展帧 0x18FF1108，DLC=8
@@ -268,6 +269,9 @@ void Bootloader_JumpToApp(uint32_t u32AppAddr)
         NVIC->ICER[i] = 0xFFFFFFFF;
         NVIC->ICPR[i] = 0xFFFFFFFF;
     }
+
+    // 4.5 Shutdown LEDs before jump
+    Led_Boot_Shutdown();
 
     // 5. ����ջָ���������
     __set_MSP(*(uint32_t *)u32AppAddr);

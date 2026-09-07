@@ -13,6 +13,7 @@
 #include "flash_download.h"
 #include "rtt_log.h"
 #include "TickTimer.h"
+#include "Led_Boot.h"
 #include "main.h"
 #include "Bootloader_App.h"
 
@@ -114,6 +115,7 @@ void UdsOta_Poll(void)
         isotp_ms_update();
         uds_ms_update();
         isotp_tx_process();
+        Led_Boot_Task();    /* 升级 LED 状态机: 随 FlashDownload 状态自动切换 */
     }
 
     FlashDownload_Task();
