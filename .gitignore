@@ -1,0 +1,16 @@
+# IDE
+.vscode/
+
+# Keil MDK build output
+projects/**/MDK/output/
+*.uvguix.*
+
+# JLink
+JLinkLog.txt
+JLinkSettings.ini
+
+# IAR build output
+projects/**/EWARM/settings/
+
+# GCC build output
+projects/**/GCC/obj/
