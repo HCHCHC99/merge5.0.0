@@ -96,11 +96,11 @@ static void can_cfg_init(CM_CAN_TypeDef *CANx, const can_cfg_t *cfg)
 	stc_can_filter_config_t astcFilter[8] = {
     {0x18FF9DF0UL, 0UL, CAN_ID_STD_EXT},  // Filter 1
     {0x18FFC060UL, 0UL, CAN_ID_STD_EXT},  // Filter 2
-    {0x18FF8018UL, 0UL, CAN_ID_STD_EXT},  // Filter 3
+    {0x18FF8018UL, 0x00000800UL, CAN_ID_STD_EXT},  // Filter 3: 掩码忽略bit11, 同时覆盖0x18FF8818
     {0x18FFEC18UL, 0UL, CAN_ID_STD_EXT},  // Filter 4
     {0x18FF17F0UL, 0UL, CAN_ID_STD_EXT},  // Filter 5
     {0x18FF31F9UL, 0UL, CAN_ID_STD_EXT},  // Filter 6
-    {0x18FF8818UL, 0UL, CAN_ID_STD_EXT},  // Filter 7
+    {0x18DA03F1UL, 0UL, CAN_ID_STD_EXT},  // Filter 7: UDS物理请求ID (升级工装/TBOX -> 本控制器)
 
     {0x18FFFDF0UL, 0x00000200UL, CAN_ID_STD_EXT},  // Filter 8:过滤器只能过滤8个ID，0x18FFFDF0和0x18FFFFF0相似，所以在0x18FFFDF0上加上掩码同时满足两个ID的过滤
 
