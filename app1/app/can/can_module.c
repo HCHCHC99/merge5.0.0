@@ -94,15 +94,23 @@ static void can_cfg_init(CM_CAN_TypeDef *CANx, const can_cfg_t *cfg)
 
 //    };
 	stc_can_filter_config_t astcFilter[8] = {
-    {0x18FF9DF0UL, 0UL, CAN_ID_STD_EXT},  // Filter 1
-    {0x18FFC060UL, 0UL, CAN_ID_STD_EXT},  // Filter 2
-    {0x18FF8018UL, 0x00000800UL, CAN_ID_STD_EXT},  // Filter 3: 掩码忽略bit11, 同时覆盖0x18FF8818
-    {0x18FFEC18UL, 0UL, CAN_ID_STD_EXT},  // Filter 4
-    {0x18FF17F0UL, 0UL, CAN_ID_STD_EXT},  // Filter 5
-    {0x18FF31F9UL, 0UL, CAN_ID_STD_EXT},  // Filter 6
-    {0x18DA03F1UL, 0UL, CAN_ID_STD_EXT},  // Filter 7: UDS物理请求ID (升级工装/TBOX -> 本控制器)
+//    {0x18FF9DF0UL, 0UL, CAN_ID_STD_EXT},  // Filter 1 (旧)
+//    {0x18FFC060UL, 0UL, CAN_ID_STD_EXT},  // Filter 2 (旧)
+//    {0x18FF8018UL, 0x00000800UL, CAN_ID_STD_EXT},  // Filter 3(旧): 掩码忽略bit11, 同时覆盖0x18FF8818
+//    {0x18FFEC18UL, 0UL, CAN_ID_STD_EXT},  // Filter 4 (旧)
+//    {0x18FF17F0UL, 0UL, CAN_ID_STD_EXT},  // Filter 5 (旧)
+//    {0x18FF31F9UL, 0UL, CAN_ID_STD_EXT},  // Filter 6 (旧)
+//    {0x18DA03F1UL, 0UL, CAN_ID_STD_EXT},  // Filter 7(旧): UDS物理请求ID (升级工装/TBOX -> 本控制器)
+//    {0x18FFFDF0UL, 0x00000200UL, CAN_ID_STD_EXT},  // Filter 8(旧): 0x18FFFDF0和0x18FFFFF0二合一
 
-    {0x18FFFDF0UL, 0x00000200UL, CAN_ID_STD_EXT},  // Filter 8:过滤器只能过滤8个ID，0x18FFFDF0和0x18FFFFF0相似，所以在0x18FFFDF0上加上掩码同时满足两个ID的过滤
+    {0x18FF9DF0UL, 0x00008A00UL, CAN_ID_STD_EXT},  // Filter 1: 9DF0+17F0 二合一 (掩码忽略bit15/11/9)
+    {0x18FFC060UL, 0UL, CAN_ID_STD_EXT},  // Filter 2: 精确匹配 C060
+    {0x18FF8018UL, 0x00006C00UL, CAN_ID_STD_EXT},  // Filter 3: 8018+8818+EC18 三合一 (掩码忽略bit14/13/11/10)
+    {0x18FF31F9UL, 0UL, CAN_ID_STD_EXT},  // Filter 4: 精确匹配 31F9
+    {0x18FFFDF0UL, 0x00000200UL, CAN_ID_STD_EXT},  // Filter 5: FDF0+FFFFF0 二合一 (掩码忽略bit9)
+    {0x18DA03F1UL, 0UL, CAN_ID_STD_EXT},  // Filter 6: UDS物理请求ID (升级工装/TBOX -> 本控制器)
+    {0x18DBFFF0UL, 0UL, CAN_ID_STD_EXT},  // Filter 7: UDS功能寻址广播ID (新增开启)
+    {0x18FF5858UL, 0x00000D0DUL, CAN_ID_STD_EXT},  // Filter 8: 强制OTA 5858 + SWDT测试 5555 二合一 (掩码忽略bit11/10/8/3/2/0)
 
 };
 
