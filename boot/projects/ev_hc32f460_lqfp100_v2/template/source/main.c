@@ -113,7 +113,7 @@
 int main(void)
 {
     Hardware_Init();
-    Led_Boot_Init();    /* 升级 LED(PC13/PH2) 初始灭, 进入 1s 慢闪 */
+    Led_Boot_Init();    /* 升级 LED(PC13/PH2) 初始化为灭: 未进入刷写时灯灭 */
     MAIN_D("===== main(): BOOTLOADER PATH =====\r\n");
 
     /* PB6 phase indicator moved to UDS phase handlers (Phase1/2/3) */

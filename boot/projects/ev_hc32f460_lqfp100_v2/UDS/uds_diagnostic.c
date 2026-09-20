@@ -1,10 +1,51 @@
-/******************************************** ÎÄ¼þÃû: uds_diagnostic.c* ×÷Õß: AI Assistant* °æ±¾: V1.0.0* ¹¦ÄÜ: UDS Í¨ÓÃÕï¶ÏÐ­ÒéÊµÏÖ - Ö§³ÖÀý³Ì¿ØÖÆºÍ¹Ì¼þÉý¼¶* ËµÃ÷: Í¨¹ý uds_dl_if.h ³éÏó½Ó¿Úµ÷ÓÃµ×²ãÏÂÔØÊµÏÖ*******************************************/#include "uds_diagnostic.h"#include "can_adapter.h"#include "rtt_log.h"#include <string.h>#include "isotp_transport.h"#include "security_access.h"#include "Bootloader_App.h"#include "main.h"/***************************** µ÷ÊÔºê¶¨Òå ***********************************/#ifdef UDS_DEBUG    #define UDS_D(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_DEBUG, COLOR_CYAN,   "UDS", fmt, ##__VA_ARGS__)    #define UDS_I(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_INFO,  COLOR_GREEN, "UDS", fmt, ##__VA_ARGS__)    #define UDS_W(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_WARN,  COLOR_YELLOW,"UDS", fmt, ##__VA_ARGS__)    #define UDS_E(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_ERROR, COLOR_RED,   "UDS", fmt, ##__VA_ARGS__)#else    #define UDS_D(fmt, ...)  (void)0    #define UDS_I(fmt, ...)  (void)0    #define UDS_W(fmt, ...)  (void)0    #define UDS_E(fmt, ...)  (void)0#endif/***************************** Ë½ÓÐ±äÁ¿ ***********************************/static uds_ctrl_t g_uds_ctrl;/***************************** Ë½ÓÐº¯ÊýÉùÃ÷ ***********************************/static void uds_refresh_session_timer(void);static uint32_t uds_generate_seed(void);static uint32_t uds_calculate_key(uint32_t seed);static uint16_t uds_read_data_by_id(uint16_t did);static void uds_write_data_by_id(uint16_t did, uint16_t value);/* UDS ·þÎñ´¦Àíº¯Êý */static void uds_handle_diagnostic_session_control(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len);/* ½« uds_dl_result_t Ó³Éäµ½ UDS NRC */
+/*******************************************
+* ï¿½Ä¼ï¿½ï¿½ï¿½: uds_diagnostic.c
+* ï¿½ï¿½ï¿½ï¿½: AI Assistant
+* ï¿½æ±¾: V1.0.0
+* ï¿½ï¿½ï¿½ï¿½: UDS Í¨ï¿½ï¿½ï¿½ï¿½ï¿½Ð­ï¿½ï¿½Êµï¿½ï¿½ - Ö§ï¿½ï¿½ï¿½ï¿½ï¿½Ì¿ï¿½ï¿½ÆºÍ¹Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½
+* Ëµï¿½ï¿½: Í¨ï¿½ï¿½ uds_dl_if.h ï¿½ï¿½ï¿½ï¿½Ó¿Úµï¿½ï¿½Ãµ×²ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
+*******************************************/
+#include "uds_diagnostic.h"
+#include "can_adapter.h"
+#include "rtt_log.h"
+#include <string.h>
+#include "isotp_transport.h"
+#include "security_access.h"
+#include "Bootloader_App.h"
+#include "main.h"
+
+/***************************** ï¿½ï¿½ï¿½Ôºê¶¨ï¿½ï¿½ ***********************************/
+#ifdef UDS_DEBUG
+    #define UDS_D(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_DEBUG, COLOR_CYAN,   "UDS", fmt, ##__VA_ARGS__)
+    #define UDS_I(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_INFO,  COLOR_GREEN, "UDS", fmt, ##__VA_ARGS__)
+    #define UDS_W(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_WARN,  COLOR_YELLOW,"UDS", fmt, ##__VA_ARGS__)
+    #define UDS_E(fmt, ...)  LOG_CH(LOG_CH_MAIN, LOG_LEVEL_ERROR, COLOR_RED,   "UDS", fmt, ##__VA_ARGS__)
+#else
+    #define UDS_D(fmt, ...)  (void)0
+    #define UDS_I(fmt, ...)  (void)0
+    #define UDS_W(fmt, ...)  (void)0
+    #define UDS_E(fmt, ...)  (void)0
+#endif
+
+/***************************** Ë½ï¿½Ð±ï¿½ï¿½ï¿½ ***********************************/
+static uds_ctrl_t g_uds_ctrl;
+
+/***************************** Ë½ï¿½Ðºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ***********************************/
+static void uds_refresh_session_timer(void);
+static uint32_t uds_generate_seed(void);
+static uint32_t uds_calculate_key(uint32_t seed);
+static uint16_t uds_read_data_by_id(uint16_t did);
+static void uds_write_data_by_id(uint16_t did, uint16_t value);
+
+/* UDS ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static void uds_handle_diagnostic_session_control(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len);
+/* ï¿½ï¿½ uds_dl_result_t Ó³ï¿½äµ½ UDS NRC */
 #include "TickTimer.h"
 static uint8_t uds_map_dl_result_to_nrc(uds_dl_result_t dl_result)
 {
     switch (dl_result)
     {
-        case UDS_DL_OK:              return 0xFF; /* ÎÞ´íÎó£¬²»²úÉúNRC */
+        case UDS_DL_OK:              return 0xFF; /* ï¿½Þ´ï¿½ï¿½ó£¬²ï¿½ï¿½ï¿½ï¿½ï¿½NRC */
         case UDS_DL_ADDR_INVALID:    return UDS_NRC_REQUEST_OUT_OF_RANGE;
         case UDS_DL_SIZE_TOO_LARGE:  return UDS_NRC_REQUEST_OUT_OF_RANGE;
         case UDS_DL_ERASE_FAILED:    return UDS_NRC_GENERAL_PROGRAMMING_FAILURE;
@@ -18,24 +59,24 @@ static uint8_t uds_map_dl_result_to_nrc(uds_dl_result_t dl_result)
     }
 }
 
-/* UDS ³õÊ¼»¯ */
+/* UDS ï¿½ï¿½Ê¼ï¿½ï¿½ */
 void uds_init(void)
 {
     UDS_I("=== UDS Init Start ===");
     
     memset(&g_uds_ctrl, 0, sizeof(g_uds_ctrl));
     
-    /* ³õÊ¼×´Ì¬£ºÄ¬ÈÏ»á»° + Ëø¶¨ */
+    /* ï¿½ï¿½Ê¼×´Ì¬ï¿½ï¿½Ä¬ï¿½Ï»á»° + ï¿½ï¿½ï¿½ï¿½ */
     g_uds_ctrl.session_mode = UDS_SESSION_DEFAULT_MODE;
     g_uds_ctrl.security_state = UDS_SECURITY_LOCKED;
     
-    /* ÉèÖÃ²ÎÊý */
+    /* ï¿½ï¿½ï¿½Ã²ï¿½ï¿½ï¿½ */
     g_uds_ctrl.session_timeout_ms = UDS_DEFAULT_SESSION_TIMEOUT_MS;
     g_uds_ctrl.max_attempts = UDS_SECURITY_MAX_ATTEMPTS;
     g_uds_ctrl.session_timer_ms = 0;
     g_uds_ctrl.security_delay_ms = 0;
     
-    /* DID Êý¾Ý³õÊ¼»¯£ºÍ¨¹ýÏÂÔØ½Ó¿Ú´Óµ×²ã»ñÈ¡ */
+    /* DID ï¿½ï¿½ï¿½Ý³ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½Ø½Ó¿Ú´Óµ×²ï¿½ï¿½È¡ */
     if (uds_dl_is_registered())
     {
         const uds_dl_if_t* dl = uds_dl_get_if();
@@ -64,7 +105,7 @@ void uds_init(void)
         g_uds_ctrl.firmware_crc = 0;
     }
     
-    /* Àý³Ì³õÊ¼»¯ */
+    /* ï¿½ï¿½ï¿½Ì³ï¿½Ê¼ï¿½ï¿½ */
     g_uds_ctrl.routine.routine_id = 0;
     g_uds_ctrl.routine.status = 0;
     g_uds_ctrl.routine.result = 0;
@@ -75,12 +116,12 @@ void uds_init(void)
     UDS_I("=== UDS Init Done ===");
 }
 
-/* 1ms ¶¨Ê±Æ÷¹ÜÀí */
+/* 1ms ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 void uds_ms_update(void)
 {
     static uint32_t print_cnt = 0;
     
-    /* »á»°³¬Ê±¹ÜÀí */
+    /* ï¿½á»°ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ */
     if (g_uds_ctrl.session_timer_ms > 0)
     {
         g_uds_ctrl.session_timer_ms--;
@@ -95,7 +136,7 @@ void uds_ms_update(void)
                 g_uds_ctrl.security_attempts = 0;
                 g_uds_ctrl.security_seed = 0;
                 
-                /* »á»°³¬Ê±ÇÐ»»Ä¬ÈÏ»á»°Ê±£¬ÖØÖÃÏÂÔØÄ£¿é×´Ì¬ */
+                /* ï¿½á»°ï¿½ï¿½Ê±ï¿½Ð»ï¿½Ä¬ï¿½Ï»á»°Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½×´Ì¬ */
                 if (uds_dl_is_registered())
                 {
                     const uds_dl_if_t* dl = uds_dl_get_if();
@@ -106,7 +147,7 @@ void uds_ms_update(void)
         }
     }
     
-    /* °²È«·ÃÎÊÑÓ³Ù¼ÆÊ± */
+    /* ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½Ó³Ù¼ï¿½Ê± */
     if (g_uds_ctrl.security_delay_ms > 0)
     {
         g_uds_ctrl.security_delay_ms--;
@@ -116,7 +157,7 @@ void uds_ms_update(void)
         }
     }
     
-    /* ×´Ì¬´òÓ¡ */
+    /* ×´Ì¬ï¿½ï¿½Ó¡ */
     #if UDS_DEBUG_PRINT_ENABLE
     print_cnt++;
     if (print_cnt >= (UDS_STATE_PRINT_INTERVAL_MS))
@@ -135,13 +176,13 @@ void uds_ms_update(void)
     #endif
 }
 
-/* UDS ºóÌ¨´¦Àíº¯Êý */
+/* UDS ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 void uds_process(void)
 {
-    /* ¿ÉÔÚ´Ë´¦Ìí¼ÓºóÌ¨Ö´ÐÐµÈ´ý´¦Àí */
+    /* ï¿½ï¿½ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½Óºï¿½Ì¨Ö´ï¿½ÐµÈ´ï¿½ï¿½ï¿½ï¿½ï¿½ */
 }
 
-/* Ë¢ÐÂ»á»°¼ÆÊ±Æ÷ */
+/* Ë¢ï¿½Â»á»°ï¿½ï¿½Ê±ï¿½ï¿½ */
 static void uds_refresh_session_timer(void)
 {
     uint32_t old_timer = g_uds_ctrl.session_timer_ms;
@@ -149,17 +190,17 @@ static void uds_refresh_session_timer(void)
     UDS_D("Refresh timer: %d -> %d", old_timer, g_uds_ctrl.session_timer_ms);
 }
 
-/* Éú³É°²È«ÖÖ×Ó£º4×Ö½ÚËæ»úÊý */
+/* ï¿½ï¿½ï¿½É°ï¿½È«ï¿½ï¿½ï¿½Ó£ï¿½4ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 static uint32_t uds_generate_seed(void)
 {
     uint32_t seed;
     
 #if (UDS_SEED_MODE_FIXED == 1)
-    /* ¹Ì¶¨Ä£Ê½£ºÊ¹ÓÃÔ¤¶¨ÒåµÄ¹Ì¶¨ÖÖ×Ó */
+    /* ï¿½Ì¶ï¿½Ä£Ê½ï¿½ï¿½Ê¹ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½Ä¹Ì¶ï¿½ï¿½ï¿½ï¿½ï¿½ */
     seed = UDS_FIXED_SEED_VALUE;
     UDS_D("Generate seed (FIXED mode): 0x%08X", seed);
 #else
-    /* Ëæ»úÄ£Ê½£ºÊ¹ÓÃ¼ÆÊýÆ÷ºÍ¼ÆÊ±Æ÷Éú³ÉÎ±Ëæ»úÊý */
+    /* ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Ê¹ï¿½Ã¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î±ï¿½ï¿½ï¿½ï¿½ï¿½ */
     static uint32_t seed_counter = 0;
     seed_counter++;
     seed = (seed_counter * 0x9E3779B9) + (uint32_t)(g_uds_ctrl.session_timer_ms);
@@ -169,7 +210,7 @@ static uint32_t uds_generate_seed(void)
     return seed;
 }
 
-/* ¼ÆËãÃÜÔ¿£ºÊ¹ÓÃCRC8Ëã·¨ */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¿ï¿½ï¿½Ê¹ï¿½ï¿½CRC8ï¿½ã·¨ */
 static uint32_t uds_calculate_key(uint32_t seed)
 {
     uint8_t seed_bytes[4];
@@ -197,7 +238,7 @@ static uint32_t uds_calculate_key(uint32_t seed)
     return key;
 }
 
-/* Í¨¹ýÏÂÔØ½Ó¿Ú¶ÁÈ¡ DID */
+/* Í¨ï¿½ï¿½ï¿½ï¿½ï¿½Ø½Ó¿Ú¶ï¿½È¡ DID */
 static uint16_t uds_read_data_by_id(uint16_t did)
 {
     uint16_t value = 0;
@@ -239,7 +280,7 @@ static void uds_write_data_by_id(uint16_t did, uint16_t value)
     }
 }
 
-/* ´¦ÀíÕï¶Ï»á»°¿ØÖÆ (0x10) */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï»á»°ï¿½ï¿½ï¿½ï¿½ (0x10) */
 static void uds_handle_diagnostic_session_control(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
 {
     uint8_t sub_func;
@@ -286,7 +327,7 @@ static void uds_handle_diagnostic_session_control(uint8_t* data, uint8_t len, ui
         g_uds_ctrl.security_seed = 0;
         g_uds_ctrl.security_delay_ms = 0;
         
-        /* ÇÐ»»µ½Ä¬ÈÏ»á»°Ê±£¬ÖØÖÃÏÂÔØÄ£¿é×´Ì¬£¨±ÜÃâ¶ÏµãÐøÐ´£© */
+        /* ï¿½Ð»ï¿½ï¿½ï¿½Ä¬ï¿½Ï»á»°Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½Ð´ï¿½ï¿½ */
         if (uds_dl_is_registered())
         {
             const uds_dl_if_t* dl = uds_dl_get_if();
@@ -350,23 +391,19 @@ static void uds_handle_ecu_reset(uint8_t* data, uint8_t len, uint8_t* resp, uint
     }
 
     if (SCB->VTOR == 0) {
-        MAIN_D("  ECU Reset: Bootloader context, writing pending_sid=0x11 to flash\r\n");
-        stc_uds_shared_t state;
-        UdsShared_Read(&state);
-        MAIN_D("  Shared state: magic=0x%08X, phase=%d, pending_sid=0x%02X\r\n",
-               (unsigned int)state.magic, (int)state.phase, (unsigned int)state.pending_sid);
-        if (state.magic == UDS_SHARED_MAGIC) {
-            state.pending_sid = 0x11;
-            UdsShared_Write(&state);
-            MAIN_D("  pending_sid=0x11 written to flash at 0x%08X\r\n",
-                   (unsigned int)UDS_SHARED_SECTOR_BASE);
+        /* Bootloader context: fixture detect + stay mode (logic in Bootloader_App.c) */
+        if (Boot_FixtureStayActive()) {
+            /* Stay mode, repeated 0x11: ACK only (B), no flash write, no reset */
+            MAIN_D("  ECU Reset in stay mode <-- ACK only, stay kept\r\n");
+            Boot_FixtureSendAck();
         } else {
-            MAIN_D("  WARNING: magic mismatch (0x%08X), pending_sid NOT written!\r\n",
-                   (unsigned int)state.magic);
+            /* Arm 500ms fixture-detect window (deferred pending/reset):
+             * heartbeat seen in window -> fixture (ack + stay, LED solid)
+             * window expired silently  -> TBOX path (pending_sid + delayed reset) */
+            MAIN_D("  ECU Reset: arming fixture window (500ms), reset deferred\r\n");
+            Boot_FixtureArmWindow();
         }
         *resp_len = 0;
-        MAIN_D("  Delayed reset scheduled in %d ms\r\n", (int)DELAYED_RESET_MS);
-        g_delayed_reset_ms = DELAYED_RESET_MS;
     } else {
         MAIN_D("  ECU Reset: APP context, sending normal response\r\n");
         resp[0] = reset_type;
@@ -375,7 +412,336 @@ static void uds_handle_ecu_reset(uint8_t* data, uint8_t len, uint8_t* resp, uint
 
 }
 
-static void uds_handle_read_data_by_id(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    uint16_t did;    uint16_t value;        UDS_I(">>> Handle 0x22 (Read Data)");        if (len < 3)    {        UDS_E("Length error: len=%d < 3", len);        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        did = (data[1] << 8) | data[2];    UDS_D("DID=0x%04X", did);        if (did != DID_FIRMWARE_VERSION && did != DID_BOOTLOADER_VERSION && did != DID_FIRMWARE_CRC)    {        UDS_W("DID out of range: 0x%04X", did);        uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);        return;    }        value = uds_read_data_by_id(did);        resp[0] = (did >> 8) & 0xFF;    resp[1] = did & 0xFF;    resp[2] = (value >> 8) & 0xFF;    resp[3] = value & 0xFF;    *resp_len = 4;        UDS_I("Response: DID=0x%04X, Value=0x%04X", did, value);}/* ´¦ÀíÐ´Êý¾Ý (0x2E) */static void uds_handle_write_data_by_id(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    uint16_t did;    uint16_t value;        UDS_I(">>> Handle 0x2E (Write Data)");        if (len < 5)    {        UDS_E("Length error: len=%d < 5", len);        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        did = (data[1] << 8) | data[2];    value = (data[3] << 8) | data[4];    UDS_D("DID=0x%04X, Value=0x%04X", did, value);        if (g_uds_ctrl.session_mode != UDS_SESSION_EXTENDED_MODE &&        g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)    {        UDS_W("Not in EXTENDED/PROGRAMMING session! session_mode=%d", g_uds_ctrl.session_mode);        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);        return;    }        if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)    {        UDS_W("Security locked! security_state=%d", g_uds_ctrl.security_state);        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);        return;    }        switch (did)    {        case DID_FIRMWARE_VERSION:        case DID_BOOTLOADER_VERSION:        case DID_FIRMWARE_CRC:            UDS_W("Write to read-only DID: 0x%04X", did);            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);            return;                    default:            UDS_W("Unknown DID: 0x%04X", did);            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);            return;    }}/* ´¦Àí°²È«·ÃÎÊ (0x27) */static void uds_handle_security_access(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    uint8_t sub_func;    uint32_t received_key;        UDS_I(">>> Handle 0x27 (Security Access)");    UDS_D("Current state: session=%d, security=%d, timer=%d",          g_uds_ctrl.session_mode, g_uds_ctrl.security_state, g_uds_ctrl.session_timer_ms);        if (len < 2)    {        UDS_E("Length error: len=%d < 2", len);        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        sub_func = data[1];    UDS_D("sub_func=0x%02X", sub_func);        if (g_uds_ctrl.session_mode != UDS_SESSION_EXTENDED_MODE &&        g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)    {        UDS_W("NOT in EXTENDED/PROGRAMMING session! session_mode=%d", g_uds_ctrl.session_mode);        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);        return;    }        if (g_uds_ctrl.security_delay_ms > 0)    {        UDS_W("Security delay active: %d ms", g_uds_ctrl.security_delay_ms);        uds_send_negative_response(0, data[0], UDS_NRC_REQUIRED_TIME_DELAY_NOT_EXPIRED);        return;    }        if (sub_func & 0x01)    {        UDS_I("Request seed");                if (g_uds_ctrl.security_state == UDS_SECURITY_SEED_SENT)        {            UDS_W("Duplicate ReqSeed, re-sending existing seed: 0x%08X", g_uds_ctrl.security_seed);            resp[0] = sub_func;            resp[1] = (g_uds_ctrl.security_seed >> 24) & 0xFF;            resp[2] = (g_uds_ctrl.security_seed >> 16) & 0xFF;            resp[3] = (g_uds_ctrl.security_seed >> 8) & 0xFF;            resp[4] = g_uds_ctrl.security_seed & 0xFF;            *resp_len = 5;            return;        }        if (g_uds_ctrl.security_state != UDS_SECURITY_LOCKED)        {            UDS_W("Wrong state for seed request! security_state=%d", g_uds_ctrl.security_state);            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_SEQUENCE_ERROR);            return;        }                g_uds_ctrl.security_seed = uds_generate_seed();        g_uds_ctrl.security_state = UDS_SECURITY_SEED_SENT;                UDS_I("Seed generated: 0x%08X", g_uds_ctrl.security_seed);                resp[0] = sub_func;        resp[1] = (g_uds_ctrl.security_seed >> 24) & 0xFF;        resp[2] = (g_uds_ctrl.security_seed >> 16) & 0xFF;        resp[3] = (g_uds_ctrl.security_seed >> 8) & 0xFF;        resp[4] = g_uds_ctrl.security_seed & 0xFF;        *resp_len = 5;    }    else    {        UDS_I("Send key");                if (g_uds_ctrl.security_state == UDS_SECURITY_UNLOCKED)        {            UDS_W("Duplicate SendKey, already unlocked");            resp[0] = sub_func;            *resp_len = 1;            return;        }                if (g_uds_ctrl.security_state != UDS_SECURITY_SEED_SENT)        {            UDS_W("Wrong state for key! security_state=%d", g_uds_ctrl.security_state);            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_SEQUENCE_ERROR);            return;        }                if (len < 6)        {            UDS_E("Key length error: len=%d < 6", len);            uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);            return;        }                received_key = (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];        UDS_D("Received key: 0x%08X", received_key);                uint32_t expected_key = uds_calculate_key(g_uds_ctrl.security_seed);        if (received_key == expected_key)        {            UDS_I("Key VALID! Unlocking...");            g_uds_ctrl.security_state = UDS_SECURITY_UNLOCKED;            g_uds_ctrl.security_attempts = 0;            g_uds_ctrl.security_delay_ms = 0;                        resp[0] = sub_func;            *resp_len = 1;            UDS_I("Security unlocked!");        }        else        {            UDS_W("Key INVALID! expected=0x%08X, got=0x%08X", expected_key, received_key);            g_uds_ctrl.security_attempts++;            g_uds_ctrl.security_state = UDS_SECURITY_LOCKED;            g_uds_ctrl.security_seed = 0;                        if (g_uds_ctrl.security_attempts >= g_uds_ctrl.max_attempts)            {                g_uds_ctrl.security_delay_ms = UDS_SECURITY_DELAY_BASE_MS * g_uds_ctrl.security_attempts;                UDS_W("Max attempts reached! delay=%d ms", g_uds_ctrl.security_delay_ms);                uds_send_negative_response(0, data[0], UDS_NRC_EXCEEDED_NUMBER_OF_ATTEMPTS);            }            else            {                UDS_W("Attempts: %d/%d", g_uds_ctrl.security_attempts, g_uds_ctrl.max_attempts);                uds_send_negative_response(0, data[0], UDS_NRC_INVALID_KEY);            }        }    }}/* ´¦Àí TesterPresent (0x3E) */static void uds_handle_tester_present(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    uint8_t sub_func = 0;        UDS_D(">>> Handle 0x3E (TesterPresent)");        if (len >= 2)    {        sub_func = data[1];    }        if (sub_func != 0x00 && sub_func != 0x80)    {        UDS_W("Sub-function not supported: 0x%02X", sub_func);        uds_send_negative_response(0, data[0], UDS_NRC_SUB_FUNCTION_NOT_SUPPORTED);        return;    }        if (sub_func == 0x80)    {        resp[0] = sub_func;        *resp_len = 1;        UDS_D("Response with sub_func=0x80");    }    else    {        *resp_len = 0;        UDS_D("No response");    }}/* ´¦Àí¶Á DTC (0x19) */static void uds_handle_read_dtc_info(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    uint8_t sub_func;        UDS_D(">>> Handle 0x19 (Read DTC)");        if (len < 2)    {        UDS_E("Length error");        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        sub_func = data[1];        if (sub_func != 0x01 && sub_func != 0x02)    {        UDS_W("Sub-function not supported: 0x%02X", sub_func);        uds_send_negative_response(0, data[0], UDS_NRC_SUB_FUNCTION_NOT_SUPPORTED);        return;    }        resp[0] = sub_func;    resp[1] = 0x00;    resp[2] = 0x00;    resp[3] = 0x00;    *resp_len = 4;        UDS_D("Response: no DTC");}/* ´¦ÀíÇå³ý DTC (0x14) */static void uds_handle_clear_dtc(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    UDS_D(">>> Handle 0x14 (Clear DTC)");        if (len < 1)    {        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        *resp_len = 0;    UDS_I("DTC cleared");}/* ==================== ÐÂÔö·þÎñÊµÏÖ ==================== *//* ´¦ÀíÀý³Ì¿ØÖÆ (0x31) */static void uds_handle_routine_control(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    UDS_I(">>> Handle 0x31 (Routine Control)");        /* ¼ì²é±¨ÎÄ³¤¶È */    if (len < 4)    {        UDS_E("Length error: len=%d < 4", len);        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        uint16_t rid = (data[1] << 8) | data[2];    uint8_t routine_ctrl_type = data[3];        UDS_D("RID=0x%04X, ctrl_type=0x%02X", rid, routine_ctrl_type);        /* ========== °²È«¼ì²é£º±ØÐëÒÑ°²È«½âËø ========== */    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)    {        UDS_W("Routine Control rejected: security not unlocked (state=%d)",               g_uds_ctrl.security_state);        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);        return;    }    /* ========== °²È«¼ì²é½áÊø ========== */        /* Ç¿ÖÆ¿Ï¶¨ÏìÓ¦ */    if (SCB->VTOR == APP1_START_ADDR || SCB->VTOR == APP2_START_ADDR) {            
+static void uds_handle_read_data_by_id(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    uint16_t did;
+    uint16_t value;
+    
+    UDS_I(">>> Handle 0x22 (Read Data)");
+    
+    if (len < 3)
+    {
+        UDS_E("Length error: len=%d < 3", len);
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    did = (data[1] << 8) | data[2];
+    UDS_D("DID=0x%04X", did);
+    
+    if (did != DID_FIRMWARE_VERSION && did != DID_BOOTLOADER_VERSION && did != DID_FIRMWARE_CRC)
+    {
+        UDS_W("DID out of range: 0x%04X", did);
+        uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+    
+    value = uds_read_data_by_id(did);
+    
+    resp[0] = (did >> 8) & 0xFF;
+    resp[1] = did & 0xFF;
+    resp[2] = (value >> 8) & 0xFF;
+    resp[3] = value & 0xFF;
+    *resp_len = 4;
+    
+    UDS_I("Response: DID=0x%04X, Value=0x%04X", did, value);
+}
+
+/* ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ (0x2E) */
+static void uds_handle_write_data_by_id(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    uint16_t did;
+    uint16_t value;
+    
+    UDS_I(">>> Handle 0x2E (Write Data)");
+    
+    if (len < 5)
+    {
+        UDS_E("Length error: len=%d < 5", len);
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    did = (data[1] << 8) | data[2];
+    value = (data[3] << 8) | data[4];
+    UDS_D("DID=0x%04X, Value=0x%04X", did, value);
+    
+    if (g_uds_ctrl.session_mode != UDS_SESSION_EXTENDED_MODE &&
+        g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)
+    {
+        UDS_W("Not in EXTENDED/PROGRAMMING session! session_mode=%d", g_uds_ctrl.session_mode);
+        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
+    }
+    
+    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)
+    {
+        UDS_W("Security locked! security_state=%d", g_uds_ctrl.security_state);
+        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);
+        return;
+    }
+    
+    switch (did)
+    {
+        case DID_FIRMWARE_VERSION:
+        case DID_BOOTLOADER_VERSION:
+        case DID_FIRMWARE_CRC:
+            UDS_W("Write to read-only DID: 0x%04X", did);
+            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);
+            return;
+            
+        default:
+            UDS_W("Unknown DID: 0x%04X", did);
+            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);
+            return;
+    }
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ (0x27) */
+static void uds_handle_security_access(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    uint8_t sub_func;
+    uint32_t received_key;
+    
+    UDS_I(">>> Handle 0x27 (Security Access)");
+    UDS_D("Current state: session=%d, security=%d, timer=%d",
+          g_uds_ctrl.session_mode, g_uds_ctrl.security_state, g_uds_ctrl.session_timer_ms);
+    
+    if (len < 2)
+    {
+        UDS_E("Length error: len=%d < 2", len);
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    sub_func = data[1];
+    UDS_D("sub_func=0x%02X", sub_func);
+    
+    if (g_uds_ctrl.session_mode != UDS_SESSION_EXTENDED_MODE &&
+        g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)
+    {
+        UDS_W("NOT in EXTENDED/PROGRAMMING session! session_mode=%d", g_uds_ctrl.session_mode);
+        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
+    }
+    
+    if (g_uds_ctrl.security_delay_ms > 0)
+    {
+        UDS_W("Security delay active: %d ms", g_uds_ctrl.security_delay_ms);
+        uds_send_negative_response(0, data[0], UDS_NRC_REQUIRED_TIME_DELAY_NOT_EXPIRED);
+        return;
+    }
+    
+    if (sub_func & 0x01)
+    {
+        UDS_I("Request seed");
+        
+        if (g_uds_ctrl.security_state == UDS_SECURITY_SEED_SENT)
+        {
+            UDS_W("Duplicate ReqSeed, re-sending existing seed: 0x%08X", g_uds_ctrl.security_seed);
+            resp[0] = sub_func;
+            resp[1] = (g_uds_ctrl.security_seed >> 24) & 0xFF;
+            resp[2] = (g_uds_ctrl.security_seed >> 16) & 0xFF;
+            resp[3] = (g_uds_ctrl.security_seed >> 8) & 0xFF;
+            resp[4] = g_uds_ctrl.security_seed & 0xFF;
+            *resp_len = 5;
+            return;
+        }
+
+        if (g_uds_ctrl.security_state != UDS_SECURITY_LOCKED)
+        {
+            UDS_W("Wrong state for seed request! security_state=%d", g_uds_ctrl.security_state);
+            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_SEQUENCE_ERROR);
+            return;
+        }
+        
+        g_uds_ctrl.security_seed = uds_generate_seed();
+        g_uds_ctrl.security_state = UDS_SECURITY_SEED_SENT;
+        
+        UDS_I("Seed generated: 0x%08X", g_uds_ctrl.security_seed);
+        
+        resp[0] = sub_func;
+        resp[1] = (g_uds_ctrl.security_seed >> 24) & 0xFF;
+        resp[2] = (g_uds_ctrl.security_seed >> 16) & 0xFF;
+        resp[3] = (g_uds_ctrl.security_seed >> 8) & 0xFF;
+        resp[4] = g_uds_ctrl.security_seed & 0xFF;
+        *resp_len = 5;
+    }
+    else
+    {
+        UDS_I("Send key");
+        
+        if (g_uds_ctrl.security_state == UDS_SECURITY_UNLOCKED)
+        {
+            UDS_W("Duplicate SendKey, already unlocked");
+            resp[0] = sub_func;
+            *resp_len = 1;
+            return;
+        }
+        
+        if (g_uds_ctrl.security_state != UDS_SECURITY_SEED_SENT)
+        {
+            UDS_W("Wrong state for key! security_state=%d", g_uds_ctrl.security_state);
+            uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_SEQUENCE_ERROR);
+            return;
+        }
+        
+        if (len < 6)
+        {
+            UDS_E("Key length error: len=%d < 6", len);
+            uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+            return;
+        }
+        
+        received_key = (data[2] << 24) | (data[3] << 16) | (data[4] << 8) | data[5];
+        UDS_D("Received key: 0x%08X", received_key);
+        
+        uint32_t expected_key = uds_calculate_key(g_uds_ctrl.security_seed);
+        if (received_key == expected_key)
+        {
+            UDS_I("Key VALID! Unlocking...");
+            g_uds_ctrl.security_state = UDS_SECURITY_UNLOCKED;
+            g_uds_ctrl.security_attempts = 0;
+            g_uds_ctrl.security_delay_ms = 0;
+            
+            resp[0] = sub_func;
+            *resp_len = 1;
+            UDS_I("Security unlocked!");
+        }
+        else
+        {
+            UDS_W("Key INVALID! expected=0x%08X, got=0x%08X", expected_key, received_key);
+            g_uds_ctrl.security_attempts++;
+            g_uds_ctrl.security_state = UDS_SECURITY_LOCKED;
+            g_uds_ctrl.security_seed = 0;
+            
+            if (g_uds_ctrl.security_attempts >= g_uds_ctrl.max_attempts)
+            {
+                g_uds_ctrl.security_delay_ms = UDS_SECURITY_DELAY_BASE_MS * g_uds_ctrl.security_attempts;
+                UDS_W("Max attempts reached! delay=%d ms", g_uds_ctrl.security_delay_ms);
+                uds_send_negative_response(0, data[0], UDS_NRC_EXCEEDED_NUMBER_OF_ATTEMPTS);
+            }
+            else
+            {
+                UDS_W("Attempts: %d/%d", g_uds_ctrl.security_attempts, g_uds_ctrl.max_attempts);
+                uds_send_negative_response(0, data[0], UDS_NRC_INVALID_KEY);
+            }
+        }
+    }
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ TesterPresent (0x3E) */
+static void uds_handle_tester_present(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    uint8_t sub_func = 0;
+    
+    UDS_D(">>> Handle 0x3E (TesterPresent)");
+    
+    if (len >= 2)
+    {
+        sub_func = data[1];
+    }
+    
+    if (sub_func != 0x00 && sub_func != 0x80)
+    {
+        UDS_W("Sub-function not supported: 0x%02X", sub_func);
+        uds_send_negative_response(0, data[0], UDS_NRC_SUB_FUNCTION_NOT_SUPPORTED);
+        return;
+    }
+    
+    if (sub_func == 0x80)
+    {
+        resp[0] = sub_func;
+        *resp_len = 1;
+        UDS_D("Response with sub_func=0x80");
+    }
+    else
+    {
+        *resp_len = 0;
+        UDS_D("No response");
+    }
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ DTC (0x19) */
+static void uds_handle_read_dtc_info(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    uint8_t sub_func;
+    
+    UDS_D(">>> Handle 0x19 (Read DTC)");
+    
+    if (len < 2)
+    {
+        UDS_E("Length error");
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    sub_func = data[1];
+    
+    if (sub_func != 0x01 && sub_func != 0x02)
+    {
+        UDS_W("Sub-function not supported: 0x%02X", sub_func);
+        uds_send_negative_response(0, data[0], UDS_NRC_SUB_FUNCTION_NOT_SUPPORTED);
+        return;
+    }
+    
+    resp[0] = sub_func;
+    resp[1] = 0x00;
+    resp[2] = 0x00;
+    resp[3] = 0x00;
+    *resp_len = 4;
+    
+    UDS_D("Response: no DTC");
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ DTC (0x14) */
+static void uds_handle_clear_dtc(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    UDS_D(">>> Handle 0x14 (Clear DTC)");
+    
+    if (len < 1)
+    {
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    *resp_len = 0;
+    UDS_I("DTC cleared");
+}
+
+/* ==================== ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ ==================== */
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¿ï¿½ï¿½ï¿½ (0x31) */
+static void uds_handle_routine_control(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    UDS_I(">>> Handle 0x31 (Routine Control)");
+    
+    /* ï¿½ï¿½é±¨ï¿½Ä³ï¿½ï¿½ï¿½ */
+    if (len < 4)
+    {
+        UDS_E("Length error: len=%d < 4", len);
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    uint16_t rid = (data[1] << 8) | data[2];
+    uint8_t routine_ctrl_type = data[3];
+    
+    UDS_D("RID=0x%04X, ctrl_type=0x%02X", rid, routine_ctrl_type);
+    
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½é£ºï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½È«ï¿½ï¿½ï¿½ï¿½ ========== */
+    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)
+    {
+        UDS_W("Routine Control rejected: security not unlocked (state=%d)", 
+              g_uds_ctrl.security_state);
+        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);
+        return;
+    }
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ========== */
+    
+    /* Ç¿ï¿½Æ¿Ï¶ï¿½ï¿½ï¿½Ó¦ */
+    if (SCB->VTOR == APP1_START_ADDR || SCB->VTOR == APP2_START_ADDR) {
+            
         {
             stc_uds_shared_t _st;
             MEM_ZERO_STRUCT(_st);
@@ -383,4 +749,531 @@ static void uds_handle_read_data_by_id(uint8_t* data, uint8_t len, uint8_t* resp
             _st.phase = UDS_PHASE_ENTER_BOOTLOADER;
             _st.pending_sid = 0x31;
             UdsShared_Write(&_st);
-        }        *resp_len = 0;        UDS_I("Routine Control: APP -> Bootloader, scheduled delayed reset");        g_delayed_reset_ms = DELAYED_RESET_MS;    } else {#if (BOOT_OTA_MODE_DEBUG == 1U)        /* µ÷ÊÔÄ£Ê½£ºOTA ºó¹Ì¶¨Ìø APP1£¨FW_UPDATE_COMPLETE ²»Ð´²Û£© */        Boot_SetRunSlotToAddr(UDS_POST_FLASH_BOOT_ADDR);        UDS_I("Routine Control: Boot slot set to 0x%08X", UDS_POST_FLASH_BOOT_ADDR);#else        /* ÕýÊ½Ä£Ê½£ºÌø×ª²ÛÓÉ FW_UPDATE_COMPLETE °´Êµ¼ÊÉÕÂ¼Ä¿±êÉèÖÃ£¬ÕâÀï²»¸²¸Ç */        UDS_I("Routine Control: formal mode, boot slot kept (managed by FW_UPDATE_COMPLETE)");#endif        resp[0] = routine_ctrl_type;        *resp_len = 1;    }}/* Àý³ÌÖ´ÐÐº¯ÊýÊµÏÖ£¨Í¨¹ý³éÏó½Ó¿Úµ÷ÓÃ£© */static void uds_start_routine(uint16_t rid, uint8_t* data, uint8_t len, uint32_t* result){    UDS_I("Start routine: RID=0x%04X", rid);        if (!uds_dl_is_registered())    {        UDS_W("Download interface not registered");        *result = 0;        return;    }        const uds_dl_if_t* dl = uds_dl_get_if();        switch (rid)    {        case RID_ERASE_FIRMWARE:        {            if (len < 8)            {                UDS_E("Erase routine: insufficient data, len=%d", len);                *result = 0;                return;            }                        uint32_t address = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];            uint32_t size = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];                        UDS_I("Erase firmware: addr=0x%08X, size=%d", address, size);                        uds_dl_result_t dl_result = dl->erase(address, size);            if (dl_result != UDS_DL_OK)            {                UDS_E("Erase failed: %d", dl_result);                *result = 0;            }            else            {                *result = 1;            }            break;        }                case RID_CALCULATE_CRC:        {            if (len < 8)            {                UDS_E("CRC routine: insufficient data, len=%d", len);                *result = 0;                return;            }                        uint32_t address = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];            uint32_t size = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];                        UDS_I("Calculate CRC: addr=0x%08X, size=%d", address, size);                        uint32_t crc_value = 0;            uds_dl_result_t dl_result = dl->calculate_crc(address, size, &crc_value);            if (dl_result != UDS_DL_OK)            {                UDS_E("CRC calculation failed: %d", dl_result);                *result = 0;            }            else            {                *result = crc_value;            }            break;        }                case RID_JUMP_TO_BOOTLOADER:            UDS_I("Jump to bootloader requested");            *result = 1;            break;                    case RID_JUMP_TO_APPLICATION:            UDS_I("Jump to application requested");            *result = 1;            break;                    default:            UDS_W("Unknown RID: 0x%04X", rid);            *result = 0;            break;    }}static void uds_stop_routine(uint16_t rid){    UDS_I("Stop routine: RID=0x%04X", rid);    /* µ±Ç°Àý³Ì²»Ö§³ÖÍ£Ö¹£¬Ö±½Ó·µ»Ø */}static uint32_t uds_get_routine_result(uint16_t rid){    UDS_I("Get routine result: RID=0x%04X", rid);    return g_uds_ctrl.routine.result;}/* ´¦ÀíÇëÇóÏÂÔØ (0x34) */static void uds_handle_request_download(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    UDS_I(">>> Handle 0x34 (Request Download)");        /* ========== °²È«¼ì²é ========== */    /* ¼ì²é1£º±ØÐëÔÚ±à³Ì»á»°ÖÐ */    if (g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)    {        UDS_W("Request Download rejected: not in PROGRAMMING session (session=%d)",               g_uds_ctrl.session_mode);        uds_send_negative_response(0, data[0], UDS_NRC_SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION);        return;    }        /* ¼ì²é2£º±ØÐëÒÑ°²È«½âËø */    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)    {        UDS_W("Request Download rejected: security not unlocked (state=%d)",               g_uds_ctrl.security_state);        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);        return;    }    /* ========== °²È«¼ì²é½áÊø ========== */        if (!uds_dl_is_registered())    {        UDS_W("Download interface not registered");        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);        return;    }        /* UDS: SID + dataFormatIdentifier + addrSizeFmtIdentifier + addr[N] + size[N] */    uint8_t dfi  = data[1];    uint8_t alfi = data[2];    uint8_t addr_len = (alfi >> 4) & 0x0F;    uint8_t size_len = alfi & 0x0F;        if (addr_len == 0 || addr_len > 4 || size_len == 0 || size_len > 4)    {        UDS_E("Invalid addr/size length: alfi=0x%02X", alfi);        uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);        return;    }        if (len < (uint8_t)(3 + addr_len + size_len))    {        UDS_E("Length error: len=%d < %d", len, 3 + addr_len + size_len);        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        uint32_t address = 0;    for (uint8_t i = 0; i < addr_len; i++) {        address = (address << 8) | data[3 + i];    }    uint32_t size = 0;    for (uint8_t i = 0; i < size_len; i++) {        size = (size << 8) | data[3 + addr_len + i];    }    UDS_I("Request download: addr=0x%08X, size=%d bytes", address, size);        const uds_dl_if_t* dl = uds_dl_get_if();    uds_dl_result_t dl_result = dl->on_request_download(address, size);        if (dl_result != UDS_DL_OK)    {        uint8_t nrc = uds_map_dl_result_to_nrc(dl_result);        UDS_W("Request download rejected: dl_result=%d, NRC=0x%02X", dl_result, nrc);        uds_send_negative_response(0, data[0], nrc);        return;    }        /* ÏìÓ¦£º×î´ó¿é³¤¶È£¨2×Ö½Ú£© */    resp[0] = 0x40;  /* ×î´ó¿é³¤¶È¸ß×Ö½Ú */    resp[1] = 0x00;  /* ×î´ó¿é³¤¶ÈµÍ×Ö½Ú */    *resp_len = 2;        UDS_I("Download accepted, max block size=0x4000");}/* ´¦Àí´«ÊäÊý¾Ý (0x36) */static void uds_handle_transfer_data(uint8_t* data, uint16_t len, uint8_t* resp, uint8_t* resp_len){    UDS_D(">>> Handle 0x36 (Transfer Data)");        /* ========== °²È«¼ì²é ========== */    /* ¼ì²é1£º±ØÐëÔÚ±à³Ì»á»°ÖÐ */    if (g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)    {        UDS_W("Transfer Data rejected: not in PROGRAMMING session (session=%d)",               g_uds_ctrl.session_mode);        uds_send_negative_response(0, data[0], UDS_NRC_SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION);        return;    }        /* ¼ì²é2£º±ØÐëÒÑ°²È«½âËø */    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)    {        UDS_W("Transfer Data rejected: security not unlocked (state=%d)",               g_uds_ctrl.security_state);        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);        return;    }    /* ========== °²È«¼ì²é½áÊø ========== */        if (!uds_dl_is_registered())    {        UDS_W("Download interface not registered");        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);        return;    }        if (len < 2)    {        UDS_E("Length error: len=%d < 2", len);        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);        return;    }        uint8_t block_seq = data[1];    uint16_t data_len = len - 2;        UDS_D("Transfer data: seq=%d, data_len=%d", block_seq, data_len);        const uds_dl_if_t* dl = uds_dl_get_if();    uds_dl_result_t dl_result = dl->on_transfer_data(block_seq, &data[2], data_len);        if (dl_result != UDS_DL_OK)    {        uint8_t nrc = uds_map_dl_result_to_nrc(dl_result);        UDS_W("Transfer data rejected: dl_result=%d, NRC=0x%02X", dl_result, nrc);        uds_send_negative_response(0, data[0], nrc);        return;    }        /* ¼ì²éÊÇ·ñÐèÒªÏìÓ¦µÈ´ý£¨NRC 0x78£© */    if (dl->is_pending())    {        UDS_I("Transfer data: pending response (NRC 0x78)");        uds_send_response_pending(0, data[0]);        return;    }        resp[0] = 0x76;    resp[1] = block_seq;    *resp_len = 2;    UDS_D("Transfer data accepted, positive response sent");}/* ´¦ÀíÇëÇó´«ÊäÍË³ö (0x37) */static void uds_handle_request_transfer_exit(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len){    UDS_I(">>> Handle 0x37 (Request Transfer Exit)");        /* ========== °²È«¼ì²é ========== */    /* ¼ì²é1£º±ØÐëÔÚ±à³Ì»á»°ÖÐ */    if (g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)    {        UDS_W("Transfer Exit rejected: not in PROGRAMMING session (session=%d)",               g_uds_ctrl.session_mode);        uds_send_negative_response(0, data[0], UDS_NRC_SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION);        return;    }        /* ¼ì²é2£º±ØÐëÒÑ°²È«½âËø */    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)    {        UDS_W("Transfer Exit rejected: security not unlocked (state=%d)",               g_uds_ctrl.security_state);        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);        return;    }    /* ========== °²È«¼ì²é½áÊø ========== */        if (!uds_dl_is_registered())    {        UDS_W("Download interface not registered");        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);        return;    }        const uds_dl_if_t* dl = uds_dl_get_if();    uds_dl_result_t dl_result = dl->on_transfer_exit();        if (dl_result != UDS_DL_OK)    {        uint8_t nrc = uds_map_dl_result_to_nrc(dl_result);        UDS_W("Transfer exit rejected: dl_result=%d, NRC=0x%02X", dl_result, nrc);        uds_send_negative_response(0, data[0], nrc);        return;    }        /* ¼ì²éÊÇ·ñÐèÒªÏìÓ¦µÈ´ý£¨NRC 0x78£© */    if (dl->is_pending())    {        UDS_I("Transfer exit: pending response (NRC 0x78)");        uds_send_response_pending(0, data[0]);        return;    }        uds_send_response(0, data[0], NULL, 0);    *resp_len = 0;    UDS_I("Transfer exit accepted");}/* ==================== UDS Ö÷½ÓÊÕ·Ö·¢ ==================== *//* UDS ½ÓÊÕ´¦ÀíÈë¿Ú */int8_t uds_receive_handler(uint8_t channel, uint32_t can_id, uint8_t* data, uint16_t len){    uint8_t response_buf[UDS_MAX_RESPONSE_LEN];    uint8_t response_len = 0;    uint8_t sid;        /* ==================== CAN ID ¹ýÂË£¨¿ÉÑ¡£© ==================== */#if (UDS_ENABLE_CAN_ID_FILTER == 1)    /* Ö»´¦ÀíÎïÀíÑ°Ö·ÇëÇóºÍ¹¦ÄÜÑ°Ö·ÇëÇó */    if (can_id != UDS_PHYSICAL_REQUEST_ID && can_id != UDS_FUNCTIONAL_REQUEST_ID)    {        UDS_D("CAN ID filtered: 0x%08X (expected 0x%08X or 0x%08X)",               can_id, UDS_PHYSICAL_REQUEST_ID, UDS_FUNCTIONAL_REQUEST_ID);        return -1;  /* ²»ÊÇ·¢¸ø±¾ ECU µÄ±¨ÎÄ£¬Ö±½Ó¶ªÆú */    }#endif        if (data == NULL || len < 1)    {        UDS_E("Invalid receive data");        return -1;    }        sid = data[0];    UDS_D("RX raw[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",          data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);    /* Ë¢ÐÂ»á»°¼ÆÊ±Æ÷ */    uds_refresh_session_timer();        UDS_I("=== UDS Receive: SID=0x%02X, len=%d ===", sid, len);        /* ´òÓ¡ CAN ID ÐÅÏ¢£¨µ÷ÊÔÓÃ£© */#if (UDS_ENABLE_CAN_ID_FILTER == 1)    UDS_D("CAN ID: 0x%08X (matched)", can_id);#else    UDS_D("CAN ID: 0x%08X (filter disabled)", can_id);#endif        /* ¸ù¾Ý SID ·Ö·¢µ½¶ÔÓ¦µÄ´¦Àíº¯Êý */    switch (sid)    {        case UDS_SID_DIAGNOSTIC_SESSION_CONTROL:            uds_handle_diagnostic_session_control(data, len, response_buf, &response_len);            break;                    case UDS_SID_ECU_RESET:            uds_handle_ecu_reset(data, len, response_buf, &response_len);            break;                    case UDS_SID_CLEAR_DIAGNOSTIC_INFORMATION:            uds_handle_clear_dtc(data, len, response_buf, &response_len);            break;                    case UDS_SID_READ_DTC_INFORMATION:            uds_handle_read_dtc_info(data, len, response_buf, &response_len);            break;                    case UDS_SID_READ_DATA_BY_IDENTIFIER:            uds_handle_read_data_by_id(data, len, response_buf, &response_len);            break;                    case UDS_SID_SECURITY_ACCESS:            uds_handle_security_access(data, len, response_buf, &response_len);            break;                    case UDS_SID_WRITE_DATA_BY_IDENTIFIER:            uds_handle_write_data_by_id(data, len, response_buf, &response_len);            break;                    case UDS_SID_ROUTINE_CONTROL:            uds_handle_routine_control(data, len, response_buf, &response_len);            break;                    case UDS_SID_REQUEST_DOWNLOAD:            uds_handle_request_download(data, len, response_buf, &response_len);            break;                    case UDS_SID_TRANSFER_DATA:            uds_handle_transfer_data(data, len, response_buf, &response_len);            break;                    case UDS_SID_REQUEST_TRANSFER_EXIT:            uds_handle_request_transfer_exit(data, len, response_buf, &response_len);            break;                    case UDS_SID_TESTER_PRESENT:            uds_handle_tester_present(data, len, response_buf, &response_len);            break;                    default:            UDS_W("SID not supported: 0x%02X", sid);            uds_send_negative_response(channel, sid, UDS_NRC_SERVICE_NOT_SUPPORTED);            return 0;    }        /* ·¢ËÍÏìÓ¦ */    if (response_len > 0)    {        uds_send_response(channel, sid, response_buf, response_len);    }        return 0;}/* ·¢ËÍ¿Ï¶¨ÏìÓ¦ */int8_t uds_send_response(uint8_t channel, uint8_t sid, uint8_t* data, uint8_t len){    uint8_t response[UDS_MAX_RESPONSE_LEN];    uint8_t response_len;        if (len > UDS_MAX_RESPONSE_LEN - 1)    {        UDS_E("Response too long: %d", len);        return -1;    }        response[0] = sid + 0x40;  /* ¿Ï¶¨ÏìÓ¦ = SID + 0x40 */    if (len > 0)    {        memcpy(&response[1], data, len);    }    response_len = len + 1;        UDS_D("Send response: SID=0x%02X, len=%d", sid + 0x40, response_len);        /* Í¨¹ý ISO-TP ·¢ËÍ */    isotp_send_message(channel, UDS_PHYSICAL_RESPONSE_ID, response, response_len);        return 0;}/* ·¢ËÍ·ñ¶¨ÏìÓ¦ */int8_t uds_send_negative_response(uint8_t channel, uint8_t sid, uint8_t nrc){    uint8_t response[3];        response[0] = 0x7F;  /* ·ñ¶¨ÏìÓ¦±êÊ¶ */    response[1] = sid;    /* ÇëÇóµÄ SID */    response[2] = nrc;    /* ·ñ¶¨ÏìÓ¦Âë */        UDS_W("Send NRC: SID=0x%02X, NRC=0x%02X", sid, nrc);        isotp_send_message(channel, UDS_PHYSICAL_RESPONSE_ID, response, 3);        return 0;}/* ·¢ËÍÏìÓ¦µÈ´ý (NRC 0x78) */int8_t uds_send_response_pending(uint8_t channel, uint8_t sid){    uint8_t response[3];        response[0] = 0x7F;    response[1] = sid;    response[2] = UDS_NRC_RESPONSE_PENDING;        UDS_I("Send response pending: SID=0x%02X", sid);        isotp_send_message(channel, UDS_PHYSICAL_RESPONSE_ID, response, 3);        return 0;}/* »ñÈ¡µ±Ç°»á»°Ä£Ê½ */uds_session_mode_t uds_get_session_mode(void){    return g_uds_ctrl.session_mode;}/* »ñÈ¡µ±Ç°°²È«×´Ì¬ */uds_security_state_t uds_get_security_state(void){    return g_uds_ctrl.security_state;}/* »á»°Ä£Ê½×ª×Ö·û´® */const char* uds_session_to_string(uds_session_mode_t session){    switch (session)    {        case UDS_SESSION_DEFAULT_MODE:      return "DEFAULT";        case UDS_SESSION_EXTENDED_MODE:     return "EXTENDED";        case UDS_SESSION_PROGRAMMING_MODE:  return "PROGRAMMING";        default:                            return "UNKNOWN";    }}/* °²È«×´Ì¬×ª×Ö·û´® */const char* uds_security_to_string(uds_security_state_t state){    switch (state)    {        case UDS_SECURITY_LOCKED:       return "LOCKED";        case UDS_SECURITY_SEED_SENT:    return "SEED_SENT";        case UDS_SECURITY_UNLOCKED:     return "UNLOCKED";        default:                        return "UNKNOWN";    }}
+        }
+        *resp_len = 0;
+        UDS_I("Routine Control: APP -> Bootloader, scheduled delayed reset");
+        g_delayed_reset_ms = DELAYED_RESET_MS;
+    } else {
+#if (BOOT_OTA_MODE_DEBUG == 1U)
+        /* ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½OTA ï¿½ï¿½Ì¶ï¿½ï¿½ï¿½ APP1ï¿½ï¿½FW_UPDATE_COMPLETE ï¿½ï¿½Ð´ï¿½Û£ï¿½ */
+        Boot_SetRunSlotToAddr(UDS_POST_FLASH_BOOT_ADDR);
+        UDS_I("Routine Control: Boot slot set to 0x%08X", UDS_POST_FLASH_BOOT_ADDR);
+#else
+        /* ï¿½ï¿½Ê½Ä£Ê½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ FW_UPDATE_COMPLETE ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½Â¼Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½ï¿½ï¿½ï¿½ï²»ï¿½ï¿½ï¿½ï¿½ */
+        UDS_I("Routine Control: formal mode, boot slot kept (managed by FW_UPDATE_COMPLETE)");
+#endif
+        resp[0] = routine_ctrl_type;
+        *resp_len = 1;
+    }
+}
+
+/* ï¿½ï¿½ï¿½ï¿½Ö´ï¿½Ðºï¿½ï¿½ï¿½Êµï¿½Ö£ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿Úµï¿½ï¿½Ã£ï¿½ */
+static void uds_start_routine(uint16_t rid, uint8_t* data, uint8_t len, uint32_t* result)
+{
+    UDS_I("Start routine: RID=0x%04X", rid);
+    
+    if (!uds_dl_is_registered())
+    {
+        UDS_W("Download interface not registered");
+        *result = 0;
+        return;
+    }
+    
+    const uds_dl_if_t* dl = uds_dl_get_if();
+    
+    switch (rid)
+    {
+        case RID_ERASE_FIRMWARE:
+        {
+            if (len < 8)
+            {
+                UDS_E("Erase routine: insufficient data, len=%d", len);
+                *result = 0;
+                return;
+            }
+            
+            uint32_t address = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+            uint32_t size = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+            
+            UDS_I("Erase firmware: addr=0x%08X, size=%d", address, size);
+            
+            uds_dl_result_t dl_result = dl->erase(address, size);
+            if (dl_result != UDS_DL_OK)
+            {
+                UDS_E("Erase failed: %d", dl_result);
+                *result = 0;
+            }
+            else
+            {
+                *result = 1;
+            }
+            break;
+        }
+        
+        case RID_CALCULATE_CRC:
+        {
+            if (len < 8)
+            {
+                UDS_E("CRC routine: insufficient data, len=%d", len);
+                *result = 0;
+                return;
+            }
+            
+            uint32_t address = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+            uint32_t size = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+            
+            UDS_I("Calculate CRC: addr=0x%08X, size=%d", address, size);
+            
+            uint32_t crc_value = 0;
+            uds_dl_result_t dl_result = dl->calculate_crc(address, size, &crc_value);
+            if (dl_result != UDS_DL_OK)
+            {
+                UDS_E("CRC calculation failed: %d", dl_result);
+                *result = 0;
+            }
+            else
+            {
+                *result = crc_value;
+            }
+            break;
+        }
+        
+        case RID_JUMP_TO_BOOTLOADER:
+            UDS_I("Jump to bootloader requested");
+            *result = 1;
+            break;
+            
+        case RID_JUMP_TO_APPLICATION:
+            UDS_I("Jump to application requested");
+            *result = 1;
+            break;
+            
+        default:
+            UDS_W("Unknown RID: 0x%04X", rid);
+            *result = 0;
+            break;
+    }
+}
+
+static void uds_stop_routine(uint16_t rid)
+{
+    UDS_I("Stop routine: RID=0x%04X", rid);
+    /* ï¿½ï¿½Ç°ï¿½ï¿½ï¿½Ì²ï¿½Ö§ï¿½ï¿½Í£Ö¹ï¿½ï¿½Ö±ï¿½Ó·ï¿½ï¿½ï¿½ */
+}
+
+static uint32_t uds_get_routine_result(uint16_t rid)
+{
+    UDS_I("Get routine result: RID=0x%04X", rid);
+    return g_uds_ctrl.routine.result;
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (0x34) */
+static void uds_handle_request_download(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    UDS_I(">>> Handle 0x34 (Request Download)");
+    
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½ï¿½ ========== */
+    /* ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú±ï¿½Ì»á»°ï¿½ï¿½ */
+    if (g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)
+    {
+        UDS_W("Request Download rejected: not in PROGRAMMING session (session=%d)", 
+              g_uds_ctrl.session_mode);
+        uds_send_negative_response(0, data[0], UDS_NRC_SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION);
+        return;
+    }
+    
+    /* ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½È«ï¿½ï¿½ï¿½ï¿½ */
+    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)
+    {
+        UDS_W("Request Download rejected: security not unlocked (state=%d)", 
+              g_uds_ctrl.security_state);
+        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);
+        return;
+    }
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ========== */
+    
+    if (!uds_dl_is_registered())
+    {
+        UDS_W("Download interface not registered");
+        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
+    }
+    
+    /* UDS: SID + dataFormatIdentifier + addrSizeFmtIdentifier + addr[N] + size[N] */
+    uint8_t dfi  = data[1];
+    uint8_t alfi = data[2];
+    uint8_t addr_len = (alfi >> 4) & 0x0F;
+    uint8_t size_len = alfi & 0x0F;
+    
+    if (addr_len == 0 || addr_len > 4 || size_len == 0 || size_len > 4)
+    {
+        UDS_E("Invalid addr/size length: alfi=0x%02X", alfi);
+        uds_send_negative_response(0, data[0], UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+    
+    if (len < (uint8_t)(3 + addr_len + size_len))
+    {
+        UDS_E("Length error: len=%d < %d", len, 3 + addr_len + size_len);
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    uint32_t address = 0;
+    for (uint8_t i = 0; i < addr_len; i++) {
+        address = (address << 8) | data[3 + i];
+    }
+    uint32_t size = 0;
+    for (uint8_t i = 0; i < size_len; i++) {
+        size = (size << 8) | data[3 + addr_len + i];
+    }
+
+    UDS_I("Request download: addr=0x%08X, size=%d bytes", address, size);
+    
+    const uds_dl_if_t* dl = uds_dl_get_if();
+    uds_dl_result_t dl_result = dl->on_request_download(address, size);
+    
+    if (dl_result != UDS_DL_OK)
+    {
+        uint8_t nrc = uds_map_dl_result_to_nrc(dl_result);
+        UDS_W("Request download rejected: dl_result=%d, NRC=0x%02X", dl_result, nrc);
+        uds_send_negative_response(0, data[0], nrc);
+        return;
+    }
+    
+    /* ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½é³¤ï¿½È£ï¿½2ï¿½Ö½Ú£ï¿½ */
+    resp[0] = 0x40;  /* ï¿½ï¿½ï¿½é³¤ï¿½È¸ï¿½ï¿½Ö½ï¿½ */
+    resp[1] = 0x00;  /* ï¿½ï¿½ï¿½é³¤ï¿½Èµï¿½ï¿½Ö½ï¿½ */
+    *resp_len = 2;
+    
+    UDS_I("Download accepted, max block size=0x4000");
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (0x36) */
+static void uds_handle_transfer_data(uint8_t* data, uint16_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    UDS_D(">>> Handle 0x36 (Transfer Data)");
+    
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½ï¿½ ========== */
+    /* ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú±ï¿½Ì»á»°ï¿½ï¿½ */
+    if (g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)
+    {
+        UDS_W("Transfer Data rejected: not in PROGRAMMING session (session=%d)", 
+              g_uds_ctrl.session_mode);
+        uds_send_negative_response(0, data[0], UDS_NRC_SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION);
+        return;
+    }
+    
+    /* ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½È«ï¿½ï¿½ï¿½ï¿½ */
+    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)
+    {
+        UDS_W("Transfer Data rejected: security not unlocked (state=%d)", 
+              g_uds_ctrl.security_state);
+        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);
+        return;
+    }
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ========== */
+    
+    if (!uds_dl_is_registered())
+    {
+        UDS_W("Download interface not registered");
+        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
+    }
+    
+    if (len < 2)
+    {
+        UDS_E("Length error: len=%d < 2", len);
+        uds_send_negative_response(0, data[0], UDS_NRC_INCORRECT_MESSAGE_LENGTH);
+        return;
+    }
+    
+    uint8_t block_seq = data[1];
+    uint16_t data_len = len - 2;
+    
+    UDS_D("Transfer data: seq=%d, data_len=%d", block_seq, data_len);
+    
+    const uds_dl_if_t* dl = uds_dl_get_if();
+    uds_dl_result_t dl_result = dl->on_transfer_data(block_seq, &data[2], data_len);
+    
+    if (dl_result != UDS_DL_OK)
+    {
+        uint8_t nrc = uds_map_dl_result_to_nrc(dl_result);
+        UDS_W("Transfer data rejected: dl_result=%d, NRC=0x%02X", dl_result, nrc);
+        uds_send_negative_response(0, data[0], nrc);
+        return;
+    }
+    
+    /* ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Òªï¿½ï¿½Ó¦ï¿½È´ï¿½ï¿½ï¿½NRC 0x78ï¿½ï¿½ */
+    if (dl->is_pending())
+    {
+        UDS_I("Transfer data: pending response (NRC 0x78)");
+        uds_send_response_pending(0, data[0]);
+        return;
+    }
+    
+    resp[0] = 0x76;
+    resp[1] = block_seq;
+    *resp_len = 2;
+    UDS_D("Transfer data accepted, positive response sent");
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ (0x37) */
+static void uds_handle_request_transfer_exit(uint8_t* data, uint8_t len, uint8_t* resp, uint8_t* resp_len)
+{
+    UDS_I(">>> Handle 0x37 (Request Transfer Exit)");
+    
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½ï¿½ ========== */
+    /* ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú±ï¿½Ì»á»°ï¿½ï¿½ */
+    if (g_uds_ctrl.session_mode != UDS_SESSION_PROGRAMMING_MODE)
+    {
+        UDS_W("Transfer Exit rejected: not in PROGRAMMING session (session=%d)", 
+              g_uds_ctrl.session_mode);
+        uds_send_negative_response(0, data[0], UDS_NRC_SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION);
+        return;
+    }
+    
+    /* ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½È«ï¿½ï¿½ï¿½ï¿½ */
+    if (g_uds_ctrl.security_state != UDS_SECURITY_UNLOCKED)
+    {
+        UDS_W("Transfer Exit rejected: security not unlocked (state=%d)", 
+              g_uds_ctrl.security_state);
+        uds_send_negative_response(0, data[0], UDS_NRC_SECURITY_ACCESS_DENIED);
+        return;
+    }
+    /* ========== ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ========== */
+    
+    if (!uds_dl_is_registered())
+    {
+        UDS_W("Download interface not registered");
+        uds_send_negative_response(0, data[0], UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
+    }
+    
+    const uds_dl_if_t* dl = uds_dl_get_if();
+    uds_dl_result_t dl_result = dl->on_transfer_exit();
+    
+    if (dl_result != UDS_DL_OK)
+    {
+        uint8_t nrc = uds_map_dl_result_to_nrc(dl_result);
+        UDS_W("Transfer exit rejected: dl_result=%d, NRC=0x%02X", dl_result, nrc);
+        uds_send_negative_response(0, data[0], nrc);
+        return;
+    }
+    
+    /* ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Òªï¿½ï¿½Ó¦ï¿½È´ï¿½ï¿½ï¿½NRC 0x78ï¿½ï¿½ */
+    if (dl->is_pending())
+    {
+        UDS_I("Transfer exit: pending response (NRC 0x78)");
+        uds_send_response_pending(0, data[0]);
+        return;
+    }
+    
+    uds_send_response(0, data[0], NULL, 0);
+    *resp_len = 0;
+    UDS_I("Transfer exit accepted");
+}
+
+/* ==================== UDS ï¿½ï¿½ï¿½ï¿½ï¿½Õ·Ö·ï¿½ ==================== */
+
+/* UDS ï¿½ï¿½ï¿½Õ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+int8_t uds_receive_handler(uint8_t channel, uint32_t can_id, uint8_t* data, uint16_t len)
+{
+    uint8_t response_buf[UDS_MAX_RESPONSE_LEN];
+    uint8_t response_len = 0;
+    uint8_t sid;
+    
+    /* ==================== CAN ID ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ ==================== */
+#if (UDS_ENABLE_CAN_ID_FILTER == 1)
+    /* Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°Ö·ï¿½ï¿½ï¿½ï¿½Í¹ï¿½ï¿½ï¿½Ñ°Ö·ï¿½ï¿½ï¿½ï¿½ */
+    if (can_id != UDS_PHYSICAL_REQUEST_ID && can_id != UDS_FUNCTIONAL_REQUEST_ID)
+    {
+        UDS_D("CAN ID filtered: 0x%08X (expected 0x%08X or 0x%08X)", 
+              can_id, UDS_PHYSICAL_REQUEST_ID, UDS_FUNCTIONAL_REQUEST_ID);
+        return -1;  /* ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ ECU ï¿½Ä±ï¿½ï¿½Ä£ï¿½Ö±ï¿½Ó¶ï¿½ï¿½ï¿½ */
+    }
+#endif
+    
+    if (data == NULL || len < 1)
+    {
+        UDS_E("Invalid receive data");
+        return -1;
+    }
+    
+    sid = data[0];
+
+    UDS_D("RX raw[0..7]: %02X %02X %02X %02X %02X %02X %02X %02X",
+          data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+
+    /* Ë¢ï¿½Â»á»°ï¿½ï¿½Ê±ï¿½ï¿½ */
+    uds_refresh_session_timer();
+    
+    UDS_I("=== UDS Receive: SID=0x%02X, len=%d ===", sid, len);
+    
+    /* ï¿½ï¿½Ó¡ CAN ID ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã£ï¿½ */
+#if (UDS_ENABLE_CAN_ID_FILTER == 1)
+    UDS_D("CAN ID: 0x%08X (matched)", can_id);
+#else
+    UDS_D("CAN ID: 0x%08X (filter disabled)", can_id);
+#endif
+    
+    /* ï¿½ï¿½ï¿½ï¿½ SID ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+    switch (sid)
+    {
+        case UDS_SID_DIAGNOSTIC_SESSION_CONTROL:
+            uds_handle_diagnostic_session_control(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_ECU_RESET:
+            uds_handle_ecu_reset(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_CLEAR_DIAGNOSTIC_INFORMATION:
+            uds_handle_clear_dtc(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_READ_DTC_INFORMATION:
+            uds_handle_read_dtc_info(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_READ_DATA_BY_IDENTIFIER:
+            uds_handle_read_data_by_id(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_SECURITY_ACCESS:
+            uds_handle_security_access(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_WRITE_DATA_BY_IDENTIFIER:
+            uds_handle_write_data_by_id(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_ROUTINE_CONTROL:
+            uds_handle_routine_control(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_REQUEST_DOWNLOAD:
+            uds_handle_request_download(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_TRANSFER_DATA:
+            uds_handle_transfer_data(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_REQUEST_TRANSFER_EXIT:
+            uds_handle_request_transfer_exit(data, len, response_buf, &response_len);
+            break;
+            
+        case UDS_SID_TESTER_PRESENT:
+            uds_handle_tester_present(data, len, response_buf, &response_len);
+            break;
+            
+        default:
+            UDS_W("SID not supported: 0x%02X", sid);
+            uds_send_negative_response(channel, sid, UDS_NRC_SERVICE_NOT_SUPPORTED);
+            return 0;
+    }
+    
+    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ */
+    if (response_len > 0)
+    {
+        uds_send_response(channel, sid, response_buf, response_len);
+    }
+    
+    return 0;
+}
+
+/* ï¿½ï¿½ï¿½Í¿Ï¶ï¿½ï¿½ï¿½Ó¦ */
+int8_t uds_send_response(uint8_t channel, uint8_t sid, uint8_t* data, uint8_t len)
+{
+    uint8_t response[UDS_MAX_RESPONSE_LEN];
+    uint8_t response_len;
+    
+    if (len > UDS_MAX_RESPONSE_LEN - 1)
+    {
+        UDS_E("Response too long: %d", len);
+        return -1;
+    }
+    
+    response[0] = sid + 0x40;  /* ï¿½Ï¶ï¿½ï¿½ï¿½Ó¦ = SID + 0x40 */
+    if (len > 0)
+    {
+        memcpy(&response[1], data, len);
+    }
+    response_len = len + 1;
+    
+    UDS_D("Send response: SID=0x%02X, len=%d", sid + 0x40, response_len);
+    
+    /* Í¨ï¿½ï¿½ ISO-TP ï¿½ï¿½ï¿½ï¿½ */
+    isotp_send_message(channel, UDS_PHYSICAL_RESPONSE_ID, response, response_len);
+    
+    return 0;
+}
+
+/* ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½Ó¦ */
+int8_t uds_send_negative_response(uint8_t channel, uint8_t sid, uint8_t nrc)
+{
+    uint8_t response[3];
+    
+    response[0] = 0x7F;  /* ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½Ê¶ */
+    response[1] = sid;    /* ï¿½ï¿½ï¿½ï¿½ï¿½ SID */
+    response[2] = nrc;    /* ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ */
+    
+    UDS_W("Send NRC: SID=0x%02X, NRC=0x%02X", sid, nrc);
+    
+    isotp_send_message(channel, UDS_PHYSICAL_RESPONSE_ID, response, 3);
+    
+    return 0;
+}
+
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½È´ï¿½ (NRC 0x78) */
+int8_t uds_send_response_pending(uint8_t channel, uint8_t sid)
+{
+    uint8_t response[3];
+    
+    response[0] = 0x7F;
+    response[1] = sid;
+    response[2] = UDS_NRC_RESPONSE_PENDING;
+    
+    UDS_I("Send response pending: SID=0x%02X", sid);
+    
+    isotp_send_message(channel, UDS_PHYSICAL_RESPONSE_ID, response, 3);
+    
+    return 0;
+}
+
+/* ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½á»°Ä£Ê½ */
+uds_session_mode_t uds_get_session_mode(void)
+{
+    return g_uds_ctrl.session_mode;
+}
+
+/* ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½È«×´Ì¬ */
+uds_security_state_t uds_get_security_state(void)
+{
+    return g_uds_ctrl.security_state;
+}
+
+/* ï¿½á»°Ä£Ê½×ªï¿½Ö·ï¿½ï¿½ï¿½ */
+const char* uds_session_to_string(uds_session_mode_t session)
+{
+    switch (session)
+    {
+        case UDS_SESSION_DEFAULT_MODE:      return "DEFAULT";
+        case UDS_SESSION_EXTENDED_MODE:     return "EXTENDED";
+        case UDS_SESSION_PROGRAMMING_MODE:  return "PROGRAMMING";
+        default:                            return "UNKNOWN";
+    }
+}
+
+/* ï¿½ï¿½È«×´Ì¬×ªï¿½Ö·ï¿½ï¿½ï¿½ */
+const char* uds_security_to_string(uds_security_state_t state)
+{
+    switch (state)
+    {
+        case UDS_SECURITY_LOCKED:       return "LOCKED";
+        case UDS_SECURITY_SEED_SENT:    return "SEED_SENT";
+        case UDS_SECURITY_UNLOCKED:     return "UNLOCKED";
+        default:                        return "UNKNOWN";
+    }
+}

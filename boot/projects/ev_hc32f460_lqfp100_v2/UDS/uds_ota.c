@@ -85,6 +85,7 @@ void UdsOta_Init(void)
 
     isotp_init(0);
     ISOTP_RegisterRxFilters();
+    Boot_FixtureRegisterFilter();   /* 工装心跳接收滤波 (0x18FF5818) */
     FlashDownload_Init(NULL);
     uds_dl_init_fw();
     uds_init();
@@ -116,6 +117,7 @@ void UdsOta_Poll(void)
         uds_ms_update();
         isotp_tx_process();
         Led_Boot_Task();    /* 升级 LED 状态机: 随 FlashDownload 状态自动切换 */
+        Boot_FixturePoll(); /* 工装判定窗口 + 停留态心跳判失直跳 */
     }
 
     FlashDownload_Task();

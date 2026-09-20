@@ -5,6 +5,7 @@
 #include "hc32_ll.h"
 #include "core_cm4.h"
 #include <string.h>
+#include <stdbool.h>
 
 // ###########################################################################
 //
@@ -209,6 +210,16 @@ void SetWdtFeedControl(uint32_t u32Addr, uint32_t u32Value);
 uint32_t GetWdtFeedControl(uint32_t u32Addr);
 void ClearAppStateBySlot(en_slot_type_t eSlot);
 uint32_t READ_FLASH_DIRECT(uint32_t addr);
+
+/* ===== 升级工装识别与停留模式 (实现在 Bootloader_App.c) =====
+ * 工装心跳 0x18FF5818 (100ms, data[3]=1); 0x11 触发 500ms 来源判定窗口;
+ * 工装 -> 立即补发 0x51 ack + 双橘灯常亮停留; TBOX -> 原复位路径 */
+void Boot_FixtureRegisterFilter(void);   /* 注册心跳接收滤波 (UdsOta_Init 调用) */
+void Boot_FixtureArmWindow(void);        /* 0x11 到达: 武装 500ms 判定窗口 */
+bool Boot_FixtureStayActive(void);       /* 停留态? */
+void Boot_FixtureSendAck(void);          /* 补发 0x51 ack (停留态再收 0x11 时用) */
+void Boot_FixturePoll(void);             /* 1ms 轮询: 窗口判定 + 判失直跳 (UdsOta_Poll 调用) */
+
 
 
 void ClearAllRAM(void);

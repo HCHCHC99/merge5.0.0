@@ -689,6 +689,143 @@ static void BL_ISOTP_RegisterRxFilters(void)
 }
 
 // ====================================================================
+// 升级工装识别与停留模式
+//
+// 工装全程 100ms 发送心跳 0x18FF5818 (data[3]=1) 标识升级来源; TBOX 不发。
+// 0x11(ECU Reset) 到达时武装 500ms 判定窗口 (由 uds_diagnostic.c 调用):
+//   窗口内收到心跳 -> 工装: 立即补发 0x51 ack + 双橘灯常亮, 停留 bootloader
+//                     (不写 pending_sid 不复位; 之后连续 500ms 无心跳 -> 灭灯直跳 APP)
+//   窗口满无心跳   -> TBOX: 原路径 (写 pending_sid + 延迟复位 -> APP 补发 ack)
+// 停留态再收 0x11 -> 只回 ack, 其余不动 (B方案)
+// ====================================================================
+#define FIXTURE_HEARTBEAT_CAN_ID     (0x18FF5818UL)
+#define FIXTURE_HEARTBEAT_DATA3      (0x01U)    /* 心跳帧 data[3]=1 */
+#define FIXTURE_HEARTBEAT_MIN_DLC    (4U)
+#define FIXTURE_WINDOW_MS            (500U)     /* 0x11 后来源判定窗口 */
+#define FIXTURE_STAY_TIMEOUT_MS      (500U)     /* 停留态心跳判失 */
+
+static volatile uint64_t s_fix_hb_tick = 0;         /* 最近一次心跳时刻 */
+static bool s_fix_window_active = false;            /* 500ms 判定窗口进行中 */
+static uint64_t s_fix_window_start = 0;             /* 窗口起点 */
+static bool s_fix_stay = false;                     /* 停留态标志 */
+static uint32_t s_fix_jump_addr = 0;                /* 停留结束后的直跳目标 */
+
+/* 补发 0x11 的 ack: 与 APP 端 App_CheckPendingUdsAck 同格式 (04 51 01 00 00) */
+static void Fix_SendAck(void)
+{
+    uint8_t au8Data[4] = {0x51, 0x01, 0x00, 0x00};
+    isotp_send_message(0, 0x18DAF103UL, au8Data, 4);
+    MAIN_D("  Fixture ACK sent (51 01)\r\n");
+}
+
+/* 进入停留态: 定直跳目标 + 双橘灯常亮 + 补发 ack */
+static void Fix_EnterStay(void)
+{
+    FlashDownloadProgress_t stcProg;
+    en_slot_type_t eSlot;
+
+    if (s_fix_stay) {
+        return;
+    }
+
+    /* 直跳目标: 优先用实际下载槽; 未刷写(0x34未发生)则用当前槽 */
+    FlashDownload_GetProgress(&stcProg);
+    if (stcProg.target_address == APP1_START_ADDR) {
+        s_fix_jump_addr = APP1_START_ADDR;
+    } else if (stcProg.target_address == APP2_START_ADDR) {
+        s_fix_jump_addr = APP2_START_ADDR;
+    } else {
+        eSlot = GetCurrentSlot();
+        s_fix_jump_addr = (eSlot == SLOT_APP2) ? APP2_START_ADDR : APP1_START_ADDR;
+    }
+
+    s_fix_stay = true;
+    Led_Boot_Stay();
+    Fix_SendAck();
+    MAIN_D("  Fixture detected <-- stay in bootloader, jump addr=0x%08X\r\n",
+           s_fix_jump_addr);
+}
+
+/* 工装心跳帧回调: 记录时刻; 判定窗口内首帧 -> 立即判定为工装 */
+static void Fix_HbCallback(const CanMsg_t *pMsg)
+{
+    if ((pMsg == NULL) || (pMsg->u8DLC < FIXTURE_HEARTBEAT_MIN_DLC) ||
+        (pMsg->au8Data[3] != FIXTURE_HEARTBEAT_DATA3)) {
+        return;
+    }
+    s_fix_hb_tick = tickTimer_GetCount();
+
+    if (s_fix_window_active) {
+        s_fix_window_active = false;    /* 窗口内首帧心跳 -> 提前判定 */
+        Fix_EnterStay();
+    }
+}
+
+/* 注册工装心跳接收滤波 (UdsOta_Init 调用, 须在 CanIf 初始化之后) */
+void Boot_FixtureRegisterFilter(void)
+{
+    CanIf_RxFilterEntry_t stcEntry;
+
+    stcEntry.u32CanId    = FIXTURE_HEARTBEAT_CAN_ID;
+    stcEntry.u32CanMask  = 0UL;             /* 精确匹配 */
+    stcEntry.u8Format    = CAN_ID_EXT;
+    stcEntry.pfnCallback = &Fix_HbCallback;
+    CanIf_RegisterRxFilter(&stcEntry);
+    MAIN_D("  Fixture heartbeat filter registered (0x%08X)\r\n",
+           FIXTURE_HEARTBEAT_CAN_ID);
+}
+
+/* 0x11 到达: 武装 500ms 判定窗口 (由 uds_diagnostic.c 的 0x11 处理器调用) */
+void Boot_FixtureArmWindow(void)
+{
+    s_fix_window_start = tickTimer_GetCount();
+    s_fix_window_active = true;
+    MAIN_D("0x11: fixture window armed (500ms)\r\n");
+}
+
+bool Boot_FixtureStayActive(void)
+{
+    return s_fix_stay;
+}
+
+/* 补发 0x11 的 ack (停留态再收 0x11 时由 0x11 处理器调用, B方案) */
+void Boot_FixtureSendAck(void)
+{
+    Fix_SendAck();
+}
+
+/* 1ms 轮询: 窗口到期判定 + 停留态心跳判失直跳 (UdsOta_Poll 调用) */
+void Boot_FixturePoll(void)
+{
+    uint64_t now = tickTimer_GetCount();
+    stc_uds_shared_t st;
+
+    /* 窗口到期: 心跳未出现 -> TBOX 原路径 (写 pending_sid + 延迟复位) */
+    if (s_fix_window_active && ((now - s_fix_window_start) >= FIXTURE_WINDOW_MS)) {
+        s_fix_window_active = false;
+        if (s_fix_hb_tick >= s_fix_window_start) {
+            Fix_EnterStay();    /* 兜底: 回调漏判时仍按工装处理 */
+        } else {
+            UdsShared_Read(&st);
+            if (st.magic == UDS_SHARED_MAGIC) {
+                st.pending_sid = 0x11;
+                UdsShared_Write(&st);
+                MAIN_D("  0x11 window: TBOX path, pending_sid=0x11 written\r\n");
+            } else {
+                MAIN_D("  0x11 window: TBOX path, magic mismatch, pending NOT written\r\n");
+            }
+            g_delayed_reset_ms = DELAYED_RESET_MS;
+        }
+    }
+
+    /* 停留态: 连续 500ms 无心跳 -> 灭灯直跳 APP (JumpToApp 内含 Led_Boot_Shutdown) */
+    if (s_fix_stay && ((now - s_fix_hb_tick) >= FIXTURE_STAY_TIMEOUT_MS)) {
+        MAIN_D("Fixture heartbeat lost 500ms <-- jump to APP 0x%08X\r\n", s_fix_jump_addr);
+        Bootloader_JumpToApp(s_fix_jump_addr);   /* 不返回 */
+    }
+}
+
+// ====================================================================
 // Bootloader UDS 编程模式主循环
 // ====================================================================
 
