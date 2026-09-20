@@ -762,7 +762,7 @@ void Bootloader_UdsMain(void)
             stcHb.u32ID = UDS_HEARTBEAT_CAN_ID;
             stcHb.u8IDE = 1U;           /* 扩展帧 */
             stcHb.u8DLC = 8U;
-            stcHb.au8Data[3] = 2U;      /* data[0~2]=0, data[4~7]=0 */
+            stcHb.au8Data[7] = 1U;      /* data[0~2]=0, data[4~7]=0 */
             CanIf_Send(&stcHb);
             s_last_hb_tick = tick;
         }
