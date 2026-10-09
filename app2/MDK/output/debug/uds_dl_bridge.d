@@ -1,0 +1,12 @@
+.\output\debug\uds_dl_bridge.o: ..\app\can\uds\uds_dl_bridge.c
+.\output\debug\uds_dl_bridge.o: ..\app\can\uds\uds_dl_if.h
+.\output\debug\uds_dl_bridge.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\uds_dl_bridge.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\uds_dl_bridge.o: ..\app\can\uds\flash_download.h
+.\output\debug\uds_dl_bridge.o: ..\app\can\uds\memory_map.h
+.\output\debug\uds_dl_bridge.o: ..\service\RTT\rtt_log.h
+.\output\debug\uds_dl_bridge.o: ..\service\RTT\SEGGER_RTT.h
+.\output\debug\uds_dl_bridge.o: ..\service\RTT\SEGGER_RTT_Conf.h
+.\output\debug\uds_dl_bridge.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\output\debug\uds_dl_bridge.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h
+.\output\debug\uds_dl_bridge.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h

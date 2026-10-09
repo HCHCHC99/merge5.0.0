@@ -1,0 +1,16 @@
+.\output\debug\ctrl_speed.o: ..\app\loop\ctrl_speed.c
+.\output\debug\ctrl_speed.o: ..\app\loop\ctrl_speed.h
+.\output\debug\ctrl_speed.o: ..\app\axis_typedef.h
+.\output\debug\ctrl_speed.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\ctrl_speed.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\ctrl_speed.o: ..\app\state\state_engine.h
+.\output\debug\ctrl_speed.o: ..\core\event_group.h
+.\output\debug\ctrl_speed.o: ..\config\sys_config.h
+.\output\debug\ctrl_speed.o: ..\app\event_def.h
+.\output\debug\ctrl_speed.o: ..\app\led\led_events.h
+.\output\debug\ctrl_speed.o: ..\core\ring_buffer.h
+.\output\debug\ctrl_speed.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\output\debug\ctrl_speed.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stddef.h
+.\output\debug\ctrl_speed.o: ..\core\sys_sched.h
+.\output\debug\ctrl_speed.o: ..\core\sys_module.h
+.\output\debug\ctrl_speed.o: ..\app\pid\pid_common.h

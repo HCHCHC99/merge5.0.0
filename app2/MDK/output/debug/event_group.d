@@ -1,0 +1,15 @@
+.\output\debug\event_group.o: ..\core\event_group.c
+.\output\debug\event_group.o: ..\core\event_group.h
+.\output\debug\event_group.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\event_group.o: ..\config\sys_config.h
+.\output\debug\event_group.o: ..\app\event_def.h
+.\output\debug\event_group.o: ..\app\led\led_events.h
+.\output\debug\event_group.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\event_group.o: ..\service\sys_tick.h
+.\output\debug\event_group.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\output\debug\event_group.o: ..\service\log_rtt.h
+.\output\debug\event_group.o: ..\config\log_config.h
+.\output\debug\event_group.o: ..\service\RTT\SEGGER_RTT.h
+.\output\debug\event_group.o: ..\service\RTT\SEGGER_RTT_Conf.h
+.\output\debug\event_group.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\output\debug\event_group.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h

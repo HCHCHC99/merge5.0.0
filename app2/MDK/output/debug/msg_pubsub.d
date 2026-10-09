@@ -1,0 +1,11 @@
+.\output\debug\msg_pubsub.o: ..\core\msg_pubsub.c
+.\output\debug\msg_pubsub.o: ..\core\msg_pubsub.h
+.\output\debug\msg_pubsub.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\msg_pubsub.o: ..\config\sys_config.h
+.\output\debug\msg_pubsub.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\output\debug\msg_pubsub.o: ..\service\log_rtt.h
+.\output\debug\msg_pubsub.o: ..\config\log_config.h
+.\output\debug\msg_pubsub.o: ..\service\RTT\SEGGER_RTT.h
+.\output\debug\msg_pubsub.o: ..\service\RTT\SEGGER_RTT_Conf.h
+.\output\debug\msg_pubsub.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\output\debug\msg_pubsub.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h

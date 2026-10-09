@@ -1,0 +1,14 @@
+.\output\debug\pid_common.o: ..\app\pid\pid_common.c
+.\output\debug\pid_common.o: ..\app\pid\pid_common.h
+.\output\debug\pid_common.o: ..\app\axis_typedef.h
+.\output\debug\pid_common.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\pid_common.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\pid_common.o: ..\app\state\state_engine.h
+.\output\debug\pid_common.o: ..\core\event_group.h
+.\output\debug\pid_common.o: ..\config\sys_config.h
+.\output\debug\pid_common.o: ..\app\event_def.h
+.\output\debug\pid_common.o: ..\app\led\led_events.h
+.\output\debug\pid_common.o: ..\core\ring_buffer.h
+.\output\debug\pid_common.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\output\debug\pid_common.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stddef.h
+.\output\debug\pid_common.o: F:\Keil5\ARM\ARMCC\Bin\..\include\math.h

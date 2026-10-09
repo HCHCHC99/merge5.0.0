@@ -1,0 +1,15 @@
+.\output\debug\led_sequence.o: ..\app\led\led_sequence.c
+.\output\debug\led_sequence.o: ..\app\led\led_sequence.h
+.\output\debug\led_sequence.o: ..\app\led\led.h
+.\output\debug\led_sequence.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\led_sequence.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\led_sequence.o: ..\app\led\led_config.h
+.\output\debug\led_sequence.o: ..\app\led\led_seq_id.h
+.\output\debug\led_sequence.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
+.\output\debug\led_sequence.o: ..\service\log_rtt.h
+.\output\debug\led_sequence.o: ..\config\log_config.h
+.\output\debug\led_sequence.o: ..\config\sys_config.h
+.\output\debug\led_sequence.o: ..\service\RTT\SEGGER_RTT.h
+.\output\debug\led_sequence.o: ..\service\RTT\SEGGER_RTT_Conf.h
+.\output\debug\led_sequence.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdlib.h
+.\output\debug\led_sequence.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdarg.h

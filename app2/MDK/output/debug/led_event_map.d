@@ -1,0 +1,9 @@
+.\output\debug\led_event_map.o: ..\app\led\led_event_map.c
+.\output\debug\led_event_map.o: ..\app\led\led_event_map.h
+.\output\debug\led_event_map.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+.\output\debug\led_event_map.o: ..\app\led\led.h
+.\output\debug\led_event_map.o: F:\Keil5\ARM\ARMCC\Bin\..\include\stdbool.h
+.\output\debug\led_event_map.o: ..\app\led\led_config.h
+.\output\debug\led_event_map.o: ..\app\led\led_seq_id.h
+.\output\debug\led_event_map.o: ..\app\led\led_events.h
+.\output\debug\led_event_map.o: F:\Keil5\ARM\ARMCC\Bin\..\include\string.h
