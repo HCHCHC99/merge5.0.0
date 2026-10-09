@@ -292,10 +292,6 @@ static const char* isotp_ota_annotate(uint32_t can_id, uint8_t* data)
 {
     uint8_t frame_type = data[0] & 0xF0;
 
-    if (can_id == 0x18FF8118) {
-        if (data[0] == 0x01 && data[1] == 0x00) return "<-- Enable";
-        return "";
-    }
 
     if (can_id == 0x18FF5858) {
         if (data[0] == 0xFF) return "<-- ForceBL";
@@ -358,15 +354,11 @@ static void isotp_print_ota_frame(uint32_t can_id, uint8_t* data, uint8_t len)
     
     /* ÅÐ¶Ï·½Ïò */
     const char* direction;
-    if (can_id == 0x18DA03F1) {
+    if (can_id == 0x18FF3AFD) {
         direction = "[RX]";
-    } else if (can_id == 0x18DAF103) {
+    } else if (can_id == 0x18FF1F11) {
         direction = "[TX]";
-    } else if (can_id == 0x18FF8118) {
-        direction = "[RX]";
     } else if (can_id == 0x18FF5858) {
-        direction = "[RX]";
-    } else if (can_id == 0x18DBFFF0) {
         direction = "[RX]";
     } else {
         direction = "[--]";
@@ -648,7 +640,7 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
 #endif
 
     /* ==================== ÌØÊâÖ¡¼ì²â ==================== */
-    if (can_id == 0x18DA03F1 && frame_len >= 8)
+    if (can_id == 0x18FF3AFD && frame_len >= 8)
     {
         if (frame_data[0] == 0x24 && 
             frame_data[1] == 0xD2 && 

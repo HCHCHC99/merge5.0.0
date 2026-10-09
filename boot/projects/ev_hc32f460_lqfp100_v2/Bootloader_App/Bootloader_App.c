@@ -669,11 +669,8 @@ static void BL_ISOTP_RxCallback(const CanMsg_t *pMsg)
 
 static void BL_ISOTP_RegisterRxFilters(void)
 {
-    static const uint32_t s_isotp_can_ids[4] = {
-        0x18DA03F1UL,  /* 物理寻址请求 ID (TBOX → 控制器) */
-        0x18DAF103UL,  /* 物理寻址响应 ID (控制器 → TBOX) */
-        0x18FF8118UL,  /* OTA 专用 ID */
-        0x18DBFFF0UL   /* 功能寻址请求 ID (广播) */
+    static const uint32_t s_isotp_can_ids[1] = {
+        0x18FF3AFDUL,  /* 物理寻址请求 ID (TBOX → 控制器) */
     };
 
     CanIf_RxFilterEntry_t stcEntry;
@@ -682,7 +679,7 @@ static void BL_ISOTP_RegisterRxFilters(void)
     stcEntry.u8Format   = CAN_ID_EXT;
     stcEntry.pfnCallback = &BL_ISOTP_RxCallback;
 
-    for (uint8_t i = 0U; i < 4U; i++) {
+    for (uint8_t i = 0U; i < 1U; i++) {
         stcEntry.u32CanId = s_isotp_can_ids[i];
         CanIf_RegisterRxFilter(&stcEntry);
     }
@@ -708,7 +705,7 @@ void Bootloader_UdsMain(void)
         UdsShared_Read(&_st);
         if (_st.magic == UDS_SHARED_MAGIC && _st.pending_sid == 0x31) {
             uint8_t au8Data[4] = {0x71, 0x01, 0xFF, 0x00};
-            isotp_send_message(0, 0x18DAF103UL, au8Data, 4);
+            isotp_send_message(0, 0x18FF1F11UL, au8Data, 4);
             MAIN_D("  Sent deferred 31 ACK (71 01 FF 00) via ISOTP\r\n");
             _st.pending_sid = 0;
             UdsShared_Write(&_st);
@@ -842,7 +839,7 @@ void App_CheckPendingUdsAck(void)
         CanMsg_t stcMsg;
         uint8_t au8Data[8] = {0x04, 0x51, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
         uint8_t i;
-        stcMsg.u32ID = 0x18DAF103UL;
+        stcMsg.u32ID = 0x18FF1F11UL;
         stcMsg.u8IDE  = 1U;
         stcMsg.u8RTR  = 0U;
         stcMsg.u8FDF  = 0U;

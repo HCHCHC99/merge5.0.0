@@ -26,8 +26,7 @@ static void BootTest_SendResp(uint8_t u8Status)
 }
 
 static bool is_uds_id(uint32_t id) {
-    return (id == 0x18DA03F1UL || id == 0x18DAF103UL ||
-            id == 0x18DBFFF0UL || id == 0x18FF8118UL);
+    return (id == 0x18FF3AFDUL);
 }
 
 void uds_rx_entry(uint32_t can_id, uint8_t *data, uint8_t len) {

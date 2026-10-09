@@ -1,9 +1,9 @@
-﻿/*******************************************
-* 文件名: isotp_transport.c
-* 作者: AI Assistant
-* 版本: V1.0.0
-* 功能: ISO 15765-2 传输层协议实现
-* 备注: 支持长报文的分包发送和接收
+/*******************************************
+* ???: isotp_transport.c
+* ??: AI Assistant
+* ??: V1.0.0
+* ??: ISO 15765-2 ???????
+* ??: ?????????????
 *******************************************/
 #include "isotp_transport.h"
 #include "can_adapter.h"
@@ -11,49 +11,49 @@
 #include <string.h>
 
 
-/***************************** 静态变量 ***********************************/
+/***************************** ???? ***********************************/
 
-/* 静态接收缓冲区 (8KB) */
+/* ??????? (8KB) */
 static uint8_t s_rx_buffer[ISOTP_BUFFER_SIZE];
 
-/* ISO-TP 连接实例 (单连接) */
+/* ISO-TP ???? (???) */
 static isotp_connection_t s_isotp_conn;
 
-/* 初始化标志 */
+/* ????? */
 static bool s_isotp_initialized = false;
 
-/* 发送等待标志 (用于主循环处理) */
+/* ?????? (???????) */
 static bool s_tx_pending = false;
 
-/***************************** 静态变量（CAN ID 过滤记录）****************************/
+/***************************** ????(CAN ID ????)****************************/
 #if (ISOTP_ENABLE_FILTER_RECORD == 1)
 
-/* 关注的 CAN ID 列表 */
+/* ??? CAN ID ?? */
 static const uint32_t s_filter_can_ids[ISOTP_FILTER_CAN_ID_COUNT] = ISOTP_FILTER_CAN_ID_LIST;
 
-/* 记录结构体（简化版，无时间戳）*/
+/* ?????(???,????)*/
 typedef struct {
     uint32_t can_id;
     uint8_t  data[8];
     uint8_t  len;
 } filter_record_t;
 
-/* 环形记录缓冲区 */
+/* ??????? */
 static filter_record_t s_filter_records[ISOTP_FILTER_BUFFER_SIZE];
-static uint16_t s_filter_record_index = 0;      /* 当前写入位置 */
-static uint32_t s_filter_record_count = 0;      /* 总记录次数 */
+static uint16_t s_filter_record_index = 0;      /* ?????? */
+static uint32_t s_filter_record_count = 0;      /* ????? */
 
-/* 最后记录（方便 Keil Watch 快速查看）*/
+/* ????(?? Keil Watch ????)*/
 static uint32_t s_filter_last_can_id = 0;
 static uint8_t  s_filter_last_data[8] = {0};
 static uint8_t  s_filter_last_len = 0;
 
-/* OTA 调试序号计数器 */
+/* OTA ??????? */
 static uint32_t s_ota_seq = 0;
 
 #endif /* ISOTP_ENABLE_FILTER_RECORD */
 
-/***************************** 静态函数声明 ***********************************/
+/***************************** ?????? ***********************************/
 
 static void isotp_send_flow_control(uint8_t channel, uint32_t dst_id, uint8_t flow_status, 
                                      uint8_t block_size, uint8_t st_min);
@@ -63,12 +63,12 @@ static int8_t isotp_send_consecutive_frame(uint8_t channel, uint32_t dst_id);
 static void isotp_reset_connection(void);
 static void isotp_handle_flow_control_internal(uint8_t flow_status, uint8_t block_size, uint8_t st_min);
 
-/***************************** 辅助函数：打印 ****************************/
+/***************************** ????:?? ****************************/
 static void isotp_handle_flow_control_internal(uint8_t flow_status, uint8_t block_size, uint8_t st_min);
 static void isotp_print_ota_frame(uint32_t can_id, uint8_t* data, uint8_t len);
 static void isotp_print_filtered_frame(uint32_t can_id, uint8_t* data, uint8_t len);
 
-/* 打印接收到的CAN帧详细信息 */
+/* ??????CAN????? */
 static void isotp_print_rx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t frame_len)
 {
     uint8_t frame_type = frame_data[0] & 0xF0;
@@ -78,13 +78,13 @@ static void isotp_print_rx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t f
     char data_str[64] = {0};
     char temp[8];
     
-    /* 构建数据字符串 */
+    /* ??????? */
     for (i = 0; i < frame_len && i < 8; i++) {
         sprintf(temp, "%02X ", frame_data[i]);
         strcat(data_str, temp);
     }
     
-    /* 识别帧类型 */
+    /* ????? */
     switch(frame_type) {
         case ISOTP_FRAME_SINGLE:
             sprintf(type_str, "SINGLE");
@@ -105,7 +105,7 @@ static void isotp_print_rx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t f
     
     ISOTP_I("[RX] CAN_ID=0x%08X, Type=%s, Len=%d, Data=%s", can_id, type_str, frame_len, data_str);
     
-    /* 打印解析信息 */
+    /* ?????? */
     if (frame_type == ISOTP_FRAME_SINGLE) {
         ISOTP_D("[RX] Single Frame: DataLen=%d bytes", frame_info);
         if (frame_len > 1) {
@@ -158,7 +158,7 @@ static void isotp_print_rx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t f
     }
 }
 
-/* 打印发送的CAN帧详细信息 */
+/* ?????CAN????? */
 static void isotp_print_tx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t frame_len)
 {
     uint8_t frame_type = frame_data[0] & 0xF0;
@@ -168,13 +168,13 @@ static void isotp_print_tx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t f
     char data_str[64] = {0};
     char temp[8];
     
-    /* 构建数据字符串 */
+    /* ??????? */
     for (i = 0; i < frame_len && i < 8; i++) {
         sprintf(temp, "%02X ", frame_data[i]);
         strcat(data_str, temp);
     }
     
-    /* 识别帧类型 */
+    /* ????? */
     switch(frame_type) {
         case ISOTP_FRAME_SINGLE:
             sprintf(type_str, "SINGLE");
@@ -196,7 +196,7 @@ static void isotp_print_tx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t f
     ISOTP_I("[TX] CAN_ID=0x%08X, Type=%s, Len=%d, Data=%s", can_id, type_str, frame_len, data_str);
     isotp_print_ota_frame(can_id, frame_data, frame_len);
     
-    /* 打印解析信息 */
+    /* ?????? */
     if (frame_type == ISOTP_FRAME_SINGLE) {
         ISOTP_D("[TX] Single Frame: DataLen=%d bytes", frame_info);
         if (frame_len > 1) {
@@ -249,10 +249,10 @@ static void isotp_print_tx_frame(uint32_t can_id, uint8_t* frame_data, uint8_t f
     }
 }
 
-/***************************** CAN ID 过滤记录辅助函数 ****************************/
+/***************************** CAN ID ???????? ****************************/
 #if (ISOTP_ENABLE_FILTER_RECORD == 1)
 
-/* 检查 CAN ID 是否在关注列表中 */
+/* ?? CAN ID ???????? */
 static bool isotp_is_can_id_filtered(uint32_t can_id)
 {
     for (uint8_t i = 0; i < ISOTP_FILTER_CAN_ID_COUNT; i++) {
@@ -263,7 +263,7 @@ static bool isotp_is_can_id_filtered(uint32_t can_id)
     return false;
 }
 
-/* 记录 CAN 帧到环形缓冲区（简化版，无时间戳）*/
+/* ?? CAN ???????(???,????)*/
 static void isotp_record_frame(uint32_t can_id, uint8_t* data, uint8_t len)
 {
     filter_record_t* record = &s_filter_records[s_filter_record_index];
@@ -271,7 +271,7 @@ static void isotp_record_frame(uint32_t can_id, uint8_t* data, uint8_t len)
     record->len = (len > 8) ? 8 : len;
     memcpy(record->data, data, record->len);
     
-    /* 更新最后记录变量（方便 Keil Watch 查看）*/
+    /* ????????(?? Keil Watch ??)*/
     s_filter_last_can_id = can_id;
     s_filter_last_len = (len > 8) ? 8 : len;
     memcpy(s_filter_last_data, data, s_filter_last_len);
@@ -282,20 +282,16 @@ static void isotp_record_frame(uint32_t can_id, uint8_t* data, uint8_t len)
         s_filter_record_index = 0;
     }
     
-    /* OTA 调试打印（带序号） */
+    /* OTA ????(???) */
     isotp_print_ota_frame(can_id, data, len);
 }
 
-/* OTA 调试打印：带序号的关注 CAN ID 帧 */
-/* OTA RX 注释辅助函数 */
+/* OTA ????:?????? CAN ID ? */
+/* OTA RX ?????? */
 static const char* isotp_ota_annotate(uint32_t can_id, uint8_t* data)
 {
     uint8_t frame_type = data[0] & 0xF0;
 
-    if (can_id == 0x18FF8118) {
-        if (data[0] == 0x01 && data[1] == 0x00) return "<-- Enable";
-        return "";
-    }
 
     if (frame_type == ISOTP_FRAME_FLOW_CONTROL) return "<-- FC";
     if (frame_type == ISOTP_FRAME_CONSECUTIVE) return "<-- CF";
@@ -344,21 +340,17 @@ static void isotp_print_ota_frame(uint32_t can_id, uint8_t* data, uint8_t len)
 {
     s_ota_seq++;
     
-    /* 获取当前时间戳（毫秒） */
+    /* ???????(??) */
     uint64_t tick_ms = SysTick_GetTick();
     uint32_t seconds = (uint32_t)(tick_ms / 1000);
     uint32_t milliseconds = (uint32_t)(tick_ms % 1000);
     
-    /* 判断方向 */
+    /* ???? */
     const char* direction;
-    if (can_id == 0x18DA03F1) {
+    if (can_id == 0x18FF3AFD) {
         direction = "[RX]";
-    } else if (can_id == 0x18DAF103) {
+    } else if (can_id == 0x18FF1F11) {
         direction = "[TX]";
-    } else if (can_id == 0x18FF8118) {
-        direction = "[RX]";
-    } else if (can_id == 0x18DBFFF0) {
-        direction = "[RX]";
     } else {
         direction = "[--]";
     }
@@ -370,7 +362,7 @@ static void isotp_print_ota_frame(uint32_t can_id, uint8_t* data, uint8_t len)
           data[4], data[5], data[6], data[7], ann);
 }
 
-/* 打印过滤记录的 CAN 帧（统一 OTA 格式）*/
+/* ??????? CAN ?(?? OTA ??)*/
 static void isotp_print_filtered_frame(uint32_t can_id, uint8_t* data, uint8_t len)
 {
     isotp_print_ota_frame(can_id, data, len);
@@ -378,9 +370,9 @@ static void isotp_print_filtered_frame(uint32_t can_id, uint8_t* data, uint8_t l
 
 #endif /* ISOTP_ENABLE_FILTER_RECORD */
 
-/***************************** 函数实现 ***********************************/
+/***************************** ???? ***********************************/
 
-/* 重置整个连接 */
+/* ?????? */
 static void isotp_reset_connection(void)
 {
     ISOTP_D("Reset connection");
@@ -408,7 +400,7 @@ static void isotp_reset_connection(void)
     s_tx_pending = false;
 }
 
-/* 初始化 ISO-TP 层 */
+/* ??? ISO-TP ? */
 void isotp_init(uint8_t channel)
 {
     ISOTP_I("=== ISO-TP Init Start ===");
@@ -430,14 +422,14 @@ void isotp_init(uint8_t channel)
     ISOTP_I("=== ISO-TP Init Done ===");
 }
 
-/* 1ms 定时器更新 */
+/* 1ms ????? */
 void isotp_ms_update(void)
 {
     if (!s_isotp_initialized) {
         return;
     }
     
-    /* 接收超时检查 */
+    /* ?????? */
     if (s_isotp_conn.rx_state == ISOTP_RX_ACTIVE) {
         if (s_isotp_conn.rx_timeout_counter > 0) {
             s_isotp_conn.rx_timeout_counter--;
@@ -452,7 +444,7 @@ void isotp_ms_update(void)
         }
     }
     
-    /* 发送 STmin 延迟处理 */
+    /* ?? STmin ???? */
     if (s_isotp_conn.tx_st_min_counter > 0) {
         s_isotp_conn.tx_st_min_counter--;
         if (s_isotp_conn.tx_st_min_counter == 0 && s_isotp_conn.tx_state == ISOTP_TX_SENDING_CF) {
@@ -460,7 +452,7 @@ void isotp_ms_update(void)
         }
     }
     
-    /* 发送超时检查 */
+    /* ?????? */
     if (s_isotp_conn.tx_state != ISOTP_TX_IDLE && s_isotp_conn.tx_state != ISOTP_TX_COMPLETE) {
         if (s_isotp_conn.tx_timeout_counter > 0) {
             s_isotp_conn.tx_timeout_counter--;
@@ -473,7 +465,7 @@ void isotp_ms_update(void)
     }
 }
 
-/* 发送流控帧 */
+/* ????? */
 static void isotp_send_flow_control(uint8_t channel, uint32_t dst_id, uint8_t flow_status,
                                      uint8_t block_size, uint8_t st_min)
 {
@@ -497,7 +489,7 @@ static void isotp_send_flow_control(uint8_t channel, uint32_t dst_id, uint8_t fl
     ISOTP_D("Send FC: status=%d, BS=%d, STmin=%d", flow_status, block_size, st_min);
 }
 
-/* 发送单帧 */
+/* ???? */
 static int8_t isotp_send_single_frame(uint8_t channel, uint32_t dst_id, uint8_t* data, uint8_t len)
 {
     CAN_TSMT_FRAME_t tx_frame = {0};
@@ -529,7 +521,7 @@ static int8_t isotp_send_single_frame(uint8_t channel, uint32_t dst_id, uint8_t*
     return ISOTP_OK;
 }
 
-/* 发送首帧 */
+/* ???? */
 static int8_t isotp_send_first_frame(uint8_t channel, uint32_t dst_id, uint8_t* data, uint16_t len)
 {
     CAN_TSMT_FRAME_t tx_frame = {0};
@@ -562,7 +554,7 @@ static int8_t isotp_send_first_frame(uint8_t channel, uint32_t dst_id, uint8_t* 
     return ISOTP_OK;
 }
 
-/* 发送连续帧 */
+/* ????? */
 static int8_t isotp_send_consecutive_frame(uint8_t channel, uint32_t dst_id)
 {
     CAN_TSMT_FRAME_t tx_frame = {0};
@@ -596,7 +588,7 @@ static int8_t isotp_send_consecutive_frame(uint8_t channel, uint32_t dst_id)
     return ISOTP_OK;
 }
 
-/* 内部流控处理函数 */
+/* ???????? */
 static void isotp_handle_flow_control_internal(uint8_t flow_status, uint8_t block_size, uint8_t st_min)
 {
     ISOTP_D("Handle FC internal: tx_state=%d, flow_status=%d", s_isotp_conn.tx_state, flow_status);
@@ -621,7 +613,7 @@ static void isotp_handle_flow_control_internal(uint8_t flow_status, uint8_t bloc
     }
 }
 
-/* 接收 CAN 帧处理 */
+/* ?? CAN ??? */
 int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data,
                             uint8_t frame_len, uint8_t* out_data, uint16_t* out_len)
 {
@@ -629,7 +621,7 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
         return ISOTP_ERROR;
     }
 
-    /* ==================== CAN ID 过滤记录 ==================== */
+    /* ==================== CAN ID ???? ==================== */
 #if (ISOTP_ENABLE_FILTER_RECORD == 1)
     if (isotp_is_can_id_filtered(can_id)) {
         isotp_record_frame(can_id, frame_data, frame_len);
@@ -638,8 +630,8 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
     }
 #endif
 
-    /* ==================== 特殊帧检测 ==================== */
-    if (can_id == 0x18DA03F1 && frame_len >= 8)
+    /* ==================== ????? ==================== */
+    if (can_id == 0x18FF3AFD && frame_len >= 8)
     {
         if (frame_data[0] == 0x24 && 
             frame_data[1] == 0xD2 && 
@@ -654,13 +646,13 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
         }
     }
 
-    /* 打印接收到的帧信息 */
+    /* ????????? */
     isotp_print_rx_frame(can_id, frame_data, frame_len);
     
     uint8_t frame_type = frame_data[0] & 0xF0;
     uint8_t frame_info = frame_data[0] & 0x0F;
     
-    /* 流控帧处理 - 放在最前面，不依赖接收状态 */
+    /* ????? - ?????,??????? */
     if (frame_type == ISOTP_FRAME_FLOW_CONTROL) {
         uint8_t flow_status = frame_info;
         uint8_t block_size = frame_data[1];
@@ -672,7 +664,7 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
     
     if (s_isotp_conn.rx_state == ISOTP_RX_IDLE) {
         
-        /* 单帧处理 */
+        /* ???? */
         if (frame_type == ISOTP_FRAME_SINGLE) {
             uint8_t sf_len = frame_info;
             if (sf_len > frame_len - 1) {
@@ -686,7 +678,7 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
             return ISOTP_OK;
         }
         
-        /* 首帧处理 */
+        /* ???? */
         if (frame_type == ISOTP_FRAME_FIRST) {
             s_isotp_conn.rx_total_len = (frame_info << 8) | frame_data[1];
             
@@ -702,7 +694,7 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
             s_isotp_conn.rx_state = ISOTP_RX_ACTIVE;
             s_isotp_conn.rx_src_id = can_id;
             s_isotp_conn.rx_received_len = 0;
-            s_isotp_conn.rx_expected_seq = 1;   /* 第一个连续帧期望序列号为 1 */
+            s_isotp_conn.rx_expected_seq = 1;   /* ???????????? 1 */
             s_isotp_conn.rx_cf_count_in_block = 0;
             s_isotp_conn.rx_timeout_counter = s_isotp_conn.timeout_ms;
             
@@ -738,7 +730,7 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
         return ISOTP_ERROR;
     }
     
-    /* 接收中状态，处理连续帧 */
+    /* ?????,????? */
     if (s_isotp_conn.rx_state == ISOTP_RX_ACTIVE) {
         
         if (can_id != s_isotp_conn.rx_src_id) {
@@ -796,14 +788,14 @@ int8_t isotp_receive_frame(uint8_t channel, uint32_t can_id, uint8_t* frame_data
             return ISOTP_OK;
         }
         
-        /* 还没收齐数据，返回 BUSY */
+        /* ??????,?? BUSY */
         return ISOTP_BUSY;
     }
     
     return ISOTP_ERROR;
 }
 
-/* 发送完整消息 */
+/* ?????? */
 int8_t isotp_send_message(uint8_t channel, uint32_t dst_id, uint8_t* data, uint16_t len)
 {
     if (!s_isotp_initialized) {
@@ -821,7 +813,7 @@ int8_t isotp_send_message(uint8_t channel, uint32_t dst_id, uint8_t* data, uint1
     
     ISOTP_I("[TX] Send message: dst_id=0x%08X, len=%d", dst_id, len);
     
-    /* 打印要发送的数据内容 */
+    /* ?????????? */
     ISOTP_D("[TX] Data to send: ");
     for (uint16_t i = 0; i < len && i < 16; i++) {
         ISOTP_D("[TX]   data[%d]=0x%02X", i, data[i]);
@@ -857,7 +849,7 @@ int8_t isotp_send_message(uint8_t channel, uint32_t dst_id, uint8_t* data, uint1
     return ISOTP_BUSY;
 }
 
-/* 发送处理函数 */
+/* ?????? */
 void isotp_tx_process(void)
 {
     if (!s_isotp_initialized) {
@@ -906,7 +898,7 @@ void isotp_tx_process(void)
     }
 }
 
-/* 重置接收状态 */
+/* ?????? */
 void isotp_reset_rx(void)
 {
     ISOTP_D("Reset RX");
@@ -917,7 +909,7 @@ void isotp_reset_rx(void)
     s_isotp_conn.rx_cf_count_in_block = 0;
 }
 
-/* 重置发送状态 */
+/* ?????? */
 void isotp_reset_tx(void)
 {
     ISOTP_D("Reset TX");
@@ -931,25 +923,25 @@ void isotp_reset_tx(void)
     s_tx_pending = false;
 }
 
-/* 获取当前接收状态 */
+/* ???????? */
 isotp_rx_state_t isotp_get_rx_state(void)
 {
     return s_isotp_conn.rx_state;
 }
 
-/* 获取当前发送状态 */
+/* ???????? */
 isotp_tx_state_t isotp_get_tx_state(void)
 {
     return s_isotp_conn.tx_state;
 }
 
-/* 外部接口：处理接收到的流控帧 */
+/* ????:????????? */
 void isotp_handle_flow_control(uint8_t flow_status, uint8_t block_size, uint8_t st_min)
 {
     isotp_handle_flow_control_internal(flow_status, block_size, st_min);
 }
 
-/***************************** CAN ID 过滤记录调试接口实现 ****************************/
+/***************************** CAN ID ?????????? ****************************/
 #if (ISOTP_ENABLE_FILTER_RECORD == 1)
 
 uint32_t isotp_get_filter_record_count(void)
@@ -976,7 +968,7 @@ bool isotp_get_filter_record(uint16_t index, uint32_t* can_id, uint8_t* data, ui
         return false;
     }
     
-    /* 计算实际位置：最新的是 s_filter_record_index - 1，往前推 index 个 */
+    /* ??????:???? s_filter_record_index - 1,??? index ? */
     uint16_t record_idx;
     if (s_filter_record_index >= index + 1) {
         record_idx = s_filter_record_index - 1 - index;

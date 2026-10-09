@@ -46,7 +46,7 @@ void App_CheckPendingUdsAck(void) {
     if (s.pending_sid == 0x11) {
         MAIN_D("Sending pending 11 01 ACK (51 01)\r\n");
         CanMsg_t m; memset(&m, 0, sizeof(m));
-        m.u32ID = 0x18DAF103UL; m.u8IDE = 1; m.u8DLC = 8;
+        m.u32ID = 0x18FF1F11UL; m.u8IDE = 1; m.u8DLC = 8;
         m.au8Data[0]=0x04; m.au8Data[1]=0x51; m.au8Data[2]=0x01;
         CanIf_Send(&m);
     }

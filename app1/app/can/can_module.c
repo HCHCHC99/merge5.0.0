@@ -108,8 +108,8 @@ static void can_cfg_init(CM_CAN_TypeDef *CANx, const can_cfg_t *cfg)
     {0x18FF8018UL, 0x00006C00UL, CAN_ID_STD_EXT},  // Filter 3: 8018+8818+EC18 三合一 (掩码忽略bit14/13/11/10)
     {0x18FF31F9UL, 0UL, CAN_ID_STD_EXT},  // Filter 4: 精确匹配 31F9
     {0x18FFFDF0UL, 0x00000200UL, CAN_ID_STD_EXT},  // Filter 5: FDF0+FFFFF0 二合一 (掩码忽略bit9)
-    {0x18DA03F1UL, 0UL, CAN_ID_STD_EXT},  // Filter 6: UDS物理请求ID (升级工装/TBOX -> 本控制器)
-    {0x18DBFFF0UL, 0UL, CAN_ID_STD_EXT},  // Filter 7: UDS功能寻址广播ID (新增开启)
+    {0x18FF3AFDUL, 0UL, CAN_ID_STD_EXT},  // Filter 6: UDS物理请求ID (升级工装/TBOX -> 本控制器)
+    {0x1FFFFFFFUL, 0UL, CAN_ID_STD_EXT},  // Filter 7: reserved (functional addressing removed)
     {0x18FF5858UL, 0x00000D0DUL, CAN_ID_STD_EXT},  // Filter 8: 强制OTA 5858 + SWDT测试 5555 二合一 (掩码忽略bit11/10/8/3/2/0)
 
 };

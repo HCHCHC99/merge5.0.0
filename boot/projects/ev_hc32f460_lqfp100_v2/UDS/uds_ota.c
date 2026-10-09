@@ -48,16 +48,13 @@ static void ISOTP_RxCallback(const CanMsg_t *pMsg)
 }
 
 /*
- * 注册 ISOTP 所需的 4 个 CAN ID 到 CanIf 过滤器。
- * ISOTP 过滤列表: 0x18DA03F1, 0x18DAF103, 0x18FF8118, 0x18DBFFF0
+ * 注册 ISOTP 所需的 1 个 CAN ID 到 CanIf 过滤器。
+ * ISOTP 过滤列表: 0x18FF3AFD
  */
 static void ISOTP_RegisterRxFilters(void)
 {
-    static const uint32_t s_isotp_can_ids[4] = {
-        0x18DA03F1UL,  /* 物理寻址请求 ID (TBOX → 控制器) */
-        0x18DAF103UL,  /* 物理寻址响应 ID (控制器 → TBOX) */
-        0x18FF8118UL,  /* OTA 专用 ID */
-        0x18DBFFF0UL   /* 功能寻址请求 ID (广播) */
+    static const uint32_t s_isotp_can_ids[1] = {
+        0x18FF3AFDUL,  /* 物理寻址请求 ID (TBOX → 控制器) */
     };
 
     CanIf_RxFilterEntry_t stcEntry;
@@ -66,14 +63,14 @@ static void ISOTP_RegisterRxFilters(void)
     stcEntry.u8Format   = CAN_ID_EXT;
     stcEntry.pfnCallback = &ISOTP_RxCallback;
 
-    for (uint8_t i = 0U; i < 4U; i++) {
+    for (uint8_t i = 0U; i < 1U; i++) {
         stcEntry.u32CanId = s_isotp_can_ids[i];
         if (!CanIf_RegisterRxFilter(&stcEntry)) {
             MAIN_D("ISOTP: failed to register RX filter for CAN ID 0x%08X\r\n",
                    s_isotp_can_ids[i]);
         }
     }
-    MAIN_D("ISOTP: 4 CAN ID RX filters registered\r\n");
+    MAIN_D("ISOTP: 1 CAN ID RX filters registered\r\n");
 }
 
 /***************************** 公开接口实现 *******************************/

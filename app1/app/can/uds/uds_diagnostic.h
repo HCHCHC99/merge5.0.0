@@ -16,9 +16,8 @@
 
 /****************************** 宏定义 ***********************************/
 /* UDS 诊断 CAN ID 配置 */
-#define UDS_PHYSICAL_REQUEST_ID     0x18DA03F1   /* 物理寻址请求 ID (TBOX → 推杆) */
-#define UDS_PHYSICAL_RESPONSE_ID    0x18DAF103   /* 物理寻址响应 ID (推杆 → TBOX) */
-#define UDS_FUNCTIONAL_REQUEST_ID   0x18DBFFF0   /* 功能寻址请求 ID (广播) */
+#define UDS_PHYSICAL_REQUEST_ID     0x18FF3AFD   /* 物理寻址请求 ID (TBOX → 推杆) */
+#define UDS_PHYSICAL_RESPONSE_ID    0x18FF1F11   /* 物理寻址响应 ID (推杆 → TBOX) */
 
 /* CAN ID 过滤开关
  * 1: 启用 CAN ID 过滤，只处理匹配的请求 ID
